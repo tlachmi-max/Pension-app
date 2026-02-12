@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>מחשבון פיננסי מתקדם v2.1</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            min-height: 100vh;
+        }
+        .main-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 2em;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 25px;
+            border-bottom: 3px solid #e0e0e0;
+            padding-bottom: 5px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px;
+            background: #f5f5f5;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            color: #666;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: #e0e0e0; }
+        .tab-btn.active-tab {
+            background: #667eea;
+            color: white;
+        }
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .tab-panel.active-panel { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .form-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-right: 5px solid #667eea;
+        }
+        .form-box h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .input-group { margin-bottom: 0; }
+        .input-label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+            font-size: 0.95em;
+        }
+        .text-input, .number-input, .select-input {
+            width: 100%;
+            padding: 11px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+        }
+        .text-input:focus, .number-input:focus, .select-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .add-button {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+        .add-button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+        .delete-button, .edit-button {
+            padding: 6px 16px;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .delete-button {
+            background: #dc3545;
+        }
+        .delete-button:hover {
+            background: #c82333;
+        }
+        .edit-button {
+            background: #28a745;
+        }
+        .edit-button:hover {
+            background: #218838;
+        }
+        .list-item {
+            background: white;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border-right: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .item-type {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 4px;
+        }
+        .item-info {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+        .sub-tracks {
+            background: #e9ecef;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 6px;
+        }
+        .sub-track-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 80px;
+            gap: 10px;
+            align-items: center;
+            padding: 8px;
+            background: white;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+        .summary-boxes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .summary-box {
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .summary-box.box-green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .summary-box.box-blue {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .summary-box.box-red {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+        .summary-title {
+            font-size: 0.95em;
+            opacity: 0.95;
+            margin-bottom: 10px;
+        }
+        .summary-amount {
+            font-size: 2.2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .data-table th {
+            background: #667eea;
+            color: white;
+            padding: 13px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .data-table td {
+            padding: 13px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: right;
+        }
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+        .info-box {
+            background: #d1ecf1;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-right: 4px solid #17a2b8;
+            color: #0c5460;
+        }
+        .warning-box {
+            background: #fff3cd;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-right: 4px solid #ffc107;
+            color: #856404;
+        }
+        .empty-msg {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+            font-size: 1.1em;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .checkbox-input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .badge-dream {
+            background: #ffc107;
+            color: #333;
+        }
+        .badge-excluded {
+            background: #6c757d;
+            color: white;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .chart-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .chart-item {
+            margin-bottom: 15px;
+        }
+        .chart-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+        .chart-bar {
+            background: #e0e0e0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .chart-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>💰 מחשבון תכנון פיננסי מתקדם</h1>
+        
+        <div class="tab-buttons">
+            <button class="tab-btn active-tab" data-tab="tab1">מסלולי השקעה</button>
+            <button class="tab-btn" data-tab="tab2">חלומות</button>
+            <button class="tab-btn" data-tab="tab3">תחזיות</button>
+            <button class="tab-btn" data-tab="tab4">סיכום</button>
+            <button class="tab-btn" data-tab="tab5">גרפים</button>
+        </div>
+
+        <!-- TAB 1: Investments -->
+        <div id="tab1" class="tab-panel active-panel">
+            <div class="form-box">
+                <h3 id="formTitle">הוסף מסלול השקעה חדש</h3>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label class="input-label">שם המסלול</label>
+                        <input type="text" class="text-input" id="inputInvName" placeholder="קרן פנסיה מיטב">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">בית השקעות / תיק</label>
+                        <input type="text" class="text-input" id="inputInvHouse" placeholder="מיטב / תיק אישי">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">סוג המסלול</label>
+                        <select class="select-input" id="inputInvType">
+                            <option value="0">עו"ש (0%)</option>
+                            <option value="7">תיק השקעות חייב במס (7%)</option>
+                            <option value="6.5">גמל להשקעה (6.5%)</option>
+                            <option value="6">קרן השתלמות (6%)</option>
+                            <option value="5.5">פנסיה (5.5%)</option>
+                            <option value="8">עוקב מדדים בארץ (8%)</option>
+                            <option value="9">עוקב מדדים חו"ל (9%)</option>
+                            <option value="10">S&P 500 (10%)</option>
+                            <option value="3">אג"ח (3%)</option>
+                            <option value="6">נכסים סחירים (6%)</option>
+                            <option value="7">מניות אקטיבי בארץ (7%)</option>
+                            <option value="9">מניות אקטיבי חו"ל (9%)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">פטור ממס?</label>
+                        <select class="select-input" id="inputInvTaxExempt">
+                            <option value="yes">כן</option>
+                            <option value="no">לא</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label class="input-label">סכום נוכחי (₪)</label>
+                        <input type="number" class="number-input" id="inputInvAmount" value="0" min="0" step="1000">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">הפקדה חודשית (₪)</label>
+                        <input type="number" class="number-input" id="inputInvMonthly" value="0" min="0" step="100">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">דמי ניהול מהפקדה (%)</label>
+                        <input type="number" class="number-input" id="inputInvFeeDeposit" value="0" min="0" max="10" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">דמי ניהול מצבירה (% שנתי)</label>
+                        <input type="number" class="number-input" id="inputInvFeeAnnual" value="0" min="0" max="5" step="0.01">
+                    </div>
+                </div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="checkbox-input" id="inputInvForDream">
+                            <span>מיועד למימוש חלומות</span>
+                        </label>
+                    </div>
+                    <div class="input-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="checkbox-input" id="inputInvInclude" checked>
+                            <span>כלול בחישוב הון עצמי</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Sub-tracks section -->
+                <div id="subTracksSection" style="display:none; margin-top: 15px;">
+                    <h4 style="margin-bottom: 10px;">תתי-מסלולים (פיצול השקעות) - חובה סה"כ 100%</h4>
+                    <div id="subTracksList"></div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px; align-items: end;">
+                        <div style="flex: 2;">
+                            <label class="input-label">סוג</label>
+                            <select class="select-input" id="subTrackType">
+                                <option value="מדדי מניות חו״ל">מדדי מניות חו״ל (7%)</option>
+                                <option value="מדדי מניות בארץ">מדדי מניות בארץ (7%)</option>
+                                <option value="מניות סחיר חו״ל">מניות סחיר חו״ל (7%)</option>
+                                <option value="מניות סחיר בארץ">מניות סחיר בארץ (7%)</option>
+                                <option value="אג״ח">אג״ח (4%)</option>
+                                <option value="S&P 500">S&P 500 (7%)</option>
+                                <option value="נדל״ן">נדל״ן (6%)</option>
+                                <option value="עו״ש">עו״ש (0%)</option>
+                                <option value="קרן כספית">קרן כספית/פקדון (3%)</option>
+                                <option value="אחר">אחר (5%)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="input-label">אחוז</label>
+                            <input type="number" class="number-input" id="subTrackPercent" placeholder="%" min="0" max="100" step="0.1">
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="input-label">תשואה %</label>
+                            <input type="number" class="number-input" id="subTrackReturn" step="0.1">
+                        </div>
+                        <button type="button" onclick="addSubTrack()" style="flex: 0.5; height: 45px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➕</button>
+                    </div>
+                    <div id="subTrackError" style="color: #dc3545; margin-top: 5px; font-size: 0.9em; font-weight: bold;"></div>
+                    <div id="subTrackTotal" style="color: #667eea; margin-top: 5px; font-size: 1em; font-weight: bold;"></div>
+                </div>
+
+                <button class="add-button" id="btnAddInvestment">➕ הוסף מסלול השקעה</button>
+                <button class="add-button" id="btnUpdateInvestment" style="display:none; background: #28a745;">💾 עדכן מסלול</button>
+                <button class="add-button" id="btnCancelEdit" style="display:none; background: #6c757d;">❌ בטל עריכה</button>
+            </div>
+            
+            <h3 style="margin: 20px 0 12px; color: #333;">מסלולים קיימים (<span id="countInvestments">0</span>)</h3>
+            <div id="listInvestments"></div>
+        </div>
+
+        <!-- TAB 2: Dreams -->
+        <div id="tab2" class="tab-panel">
+            <div class="form-box">
+                <h3>הוסף חלום פיננסי</h3>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label class="input-label">שם החלום</label>
+                        <input type="text" class="text-input" id="inputDreamName" placeholder="קניית דירה">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">עלות החלום (₪)</label>
+                        <input type="number" class="number-input" id="inputDreamCost" value="0" min="0" step="1000">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">שנת יעד</label>
+                        <input type="number" class="number-input" id="inputDreamYear" value="2030" min="2025" max="2060">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">מקור מימון</label>
+                        <select class="select-input" id="inputDreamSource">
+                            <option value="">לא מוגדר</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="add-button" id="btnAddDream">🎯 הוסף חלום</button>
+            </div>
+            
+            <h3 style="margin: 20px 0 12px; color: #333;">חלומות קיימים (<span id="countDreams">0</span>)</h3>
+            <div id="listDreams"></div>
+        </div>
+
+        <!-- TAB 3: Projections -->
+        <div id="tab3" class="tab-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="color: #333;">תחזית פיננסית</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-weight: bold;">שנים לתצוגה:</label>
+                    <input type="number" class="number-input" id="inputProjectionYears" value="30" min="5" max="50" style="width: 100px;">
+                    <button onclick="renderProjectionsTable()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">עדכן</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>שנה</th>
+                            <th>ערך נומינלי</th>
+                            <th>ערך ריאלי</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableProjections"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 4: Summary -->
+        <div id="tab4" class="tab-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 15px;">
+                <div class="info-box" style="flex: 1; margin: 0;">
+                    <strong>💡 הסבר:</strong> נומינלי = סכום בחשבון | ריאלי = כוח קנייה (אחרי אינפלציה 2%)
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-weight: bold; white-space: nowrap;">בעוד כמה שנים?</label>
+                    <input type="number" class="number-input" id="inputSummaryYears" value="30" min="1" max="50" style="width: 100px;">
+                    <button onclick="renderSummaryTab()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; white-space: nowrap;">עדכן</button>
+                </div>
+            </div>
+            
+            <div class="summary-boxes">
+                <div class="summary-box box-green">
+                    <div class="summary-title">ערך נומינלי<br><span id="summaryYearsLabel">(בעוד 30 שנה)</span></div>
+                    <div class="summary-amount" id="summaryNominal">₪0</div>
+                </div>
+                <div class="summary-box box-blue">
+                    <div class="summary-title">ערך ריאלי<br>(כוח קנייה של היום)</div>
+                    <div class="summary-amount" id="summaryReal">₪0</div>
+                </div>
+                <div class="summary-box box-red">
+                    <div class="summary-title">סה"כ דמי ניהול<br>(על כל התקופה)</div>
+                    <div class="summary-amount" id="summaryFees">₪0</div>
+                </div>
+            </div>
+            
+            <h3 style="margin: 25px 0 12px; color: #333;">פירוט מסלולי ההשקעה</h3>
+            <div id="summaryBreakdown"></div>
+        </div>
+
+        <!-- TAB 5: Graphs -->
+        <div id="tab5" class="tab-panel">
+            <h3 style="margin-bottom: 20px; color: #333;">גרפים ותרשימים</h3>
+            
+            <div class="chart-container">
+                <div class="chart-title">📊 חלוקה לפי מסלולי השקעה</div>
+                <div id="chartByType"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">🏢 חלוקה לפי בתי השקעות / תיק</div>
+                <div id="chartByHouse"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">💸 חלוקה לפי מיסוי</div>
+                <div id="chartByTax"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global data
+        const appData = {
+            investments: [],
+            dreams: [],
+            editingIndex: -1
+        };
+        
+        const CONFIG = {
+            INFLATION_RATE: 2,
+            DEFAULT_PROJECTION_YEARS: 30,
+            DEFAULT_SUMMARY_YEARS: 30,
+            SUB_TRACK_DEFAULTS: {
+                'מדדי מניות חו״ל': 7,
+                'מדדי מניות בארץ': 7,
+                'מניות סחיר חו״ל': 7,
+                'מניות סחיר בארץ': 7,
+                'אג״ח': 4,
+                'S&P 500': 7,
+                'נדל״ן': 6,
+                'עו״ש': 0,
+                'קרן כספית': 3,
+                'אחר': 5
+            }
+        };
+
+        let currentSubTracks = [];
+
+        // Save/Load
+        function loadSavedData() {
+            try {
+                const saved = localStorage.getItem('financeAppData_v4');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    appData.investments = parsed.investments || [];
+                    appData.dreams = parsed.dreams || [];
+                }
+            } catch (e) {
+                console.error('Load error:', e);
+            }
+        }
+
+        function saveDataToStorage() {
+            try {
+                localStorage.setItem('financeAppData_v4', JSON.stringify({
+                    investments: appData.investments,
+                    dreams: appData.dreams
+                }));
+            } catch (e) {
+                console.error('Save error:', e);
+            }
+        }
+
+        // Calculate FV with fees and sub-tracks
+        function calculateFutureValue(principal, monthlyPayment, annualRate, years, feeDeposit, feeAnnual, subTracks) {
+            if (!subTracks || subTracks.length === 0) {
+                // Simple calculation
+                const monthlyRate = annualRate / 100 / 12;
+                const monthlyFeeRate = feeAnnual / 100 / 12;
+                const effectiveMonthlyRate = monthlyRate - monthlyFeeRate;
+                const effectiveMonthlyPayment = monthlyPayment * (1 - feeDeposit / 100);
+                
+                if (effectiveMonthlyRate <= 0) {
+                    return principal + (effectiveMonthlyPayment * 12 * years);
+                }
+                
+                const months = years * 12;
+                const fvPrincipal = principal * Math.pow(1 + effectiveMonthlyRate, months);
+                const fvPayments = effectiveMonthlyPayment * ((Math.pow(1 + effectiveMonthlyRate, months) - 1) / effectiveMonthlyRate);
+                
+                return fvPrincipal + fvPayments;
+            } else {
+                // Calculate per sub-track
+                let total = 0;
+                subTracks.forEach(st => {
+                    const stPrincipal = principal * (st.percent / 100);
+                    const stMonthly = monthlyPayment * (st.percent / 100);
+                    const stRate = st.returnRate;
+                    
+                    const monthlyRate = stRate / 100 / 12;
+                    const monthlyFeeRate = feeAnnual / 100 / 12;
+                    const effectiveMonthlyRate = monthlyRate - monthlyFeeRate;
+                    const effectiveMonthlyPayment = stMonthly * (1 - feeDeposit / 100);
+                    
+                    if (effectiveMonthlyRate <= 0) {
+                        total += stPrincipal + (effectiveMonthlyPayment * 12 * years);
+                    } else {
+                        const months = years * 12;
+                        const fvPrincipal = stPrincipal * Math.pow(1 + effectiveMonthlyRate, months);
+                        const fvPayments = effectiveMonthlyPayment * ((Math.pow(1 + effectiveMonthlyRate, months) - 1) / effectiveMonthlyRate);
+                        total += fvPrincipal + fvPayments;
+                    }
+                });
+                return total;
+            }
+        }
+
+        // Calculate total fees paid
+        function calculateTotalFees(principal, monthlyPayment, annualRate, years, feeDeposit, feeAnnual) {
+            const withoutFees = calculateFutureValue(principal, monthlyPayment, annualRate, years, 0, 0, null);
+            const withFees = calculateFutureValue(principal, monthlyPayment, annualRate, years, feeDeposit, feeAnnual, null);
+            return withoutFees - withFees;
+        }
+
+        function calculateRealValue(nominalValue, years) {
+            return nominalValue / Math.pow(1 + CONFIG.INFLATION_RATE / 100, years);
+        }
+
+        function formatCurrency(amount) {
+            return '₪' + Math.round(amount).toLocaleString('he-IL');
+        }
+
+        // Tabs
+        function initializeTabs() {
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabPanels = document.querySelectorAll('.tab-panel');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    tabButtons.forEach(btn => btn.classList.remove('active-tab'));
+                    tabPanels.forEach(panel => panel.classList.remove('active-panel'));
+                    
+                    this.classList.add('active-tab');
+                    document.getElementById(targetTab).classList.add('active-panel');
+                    
+                    if (targetTab === 'tab3') renderProjectionsTable();
+                    if (targetTab === 'tab4') renderSummaryTab();
+                    if (targetTab === 'tab5') renderGraphs();
+                });
+            });
+        }
+
+        // Sub-tracks with edit capability
+        function addSubTrack() {
+            const typeSelect = document.getElementById('subTrackType');
+            const type = typeSelect.options[typeSelect.selectedIndex].text.split('(')[0].trim();
+            const percent = parseFloat(document.getElementById('subTrackPercent').value) || 0;
+            const returnRate = parseFloat(document.getElementById('subTrackReturn').value);
+
+            if (percent <= 0 || percent > 100) {
+                document.getElementById('subTrackError').textContent = '❌ אחוז חייב להיות בין 0.1-100';
+                return;
+            }
+
+            const currentTotal = currentSubTracks.reduce((sum, st) => sum + st.percent, 0);
+            const newTotal = currentTotal + percent;
+            
+            if (newTotal > 100) {
+                document.getElementById('subTrackError').textContent = `❌ סה"כ יעבור 100%! (כרגע: ${currentTotal}%, מנסה להוסיף: ${percent}%)`;
+                return;
+            }
+
+            currentSubTracks.push({ 
+                type, 
+                percent, 
+                returnRate: isNaN(returnRate) ? CONFIG.SUB_TRACK_DEFAULTS[type] || 5 : returnRate
+            });
+            
+            document.getElementById('subTrackPercent').value = '';
+            document.getElementById('subTrackReturn').value = '';
+            document.getElementById('subTrackError').textContent = '';
+            renderSubTracks();
+        }
+
+        function editSubTrack(index) {
+            const st = currentSubTracks[index];
+            document.getElementById('subTrackPercent').value = st.percent;
+            document.getElementById('subTrackReturn').value = st.returnRate;
+            
+            // Remove from array so we can re-add with new values
+            currentSubTracks.splice(index, 1);
+            renderSubTracks();
+        }
+
+        function removeSubTrack(index) {
+            currentSubTracks.splice(index, 1);
+            renderSubTracks();
+        }
+
+        function renderSubTracks() {
+            const container = document.getElementById('subTracksList');
+            const totalPercent = currentSubTracks.reduce((sum, st) => sum + st.percent, 0);
+            
+            container.innerHTML = currentSubTracks.map((st, i) => `
+                <div class="sub-track-item">
+                    <span><strong>${st.type}</strong></span>
+                    <span>${st.percent}%</span>
+                    <span>תשואה: ${st.returnRate}%</span>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="editSubTrack(${i})" style="background: #28a745; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer;">✏️</button>
+                        <button onclick="removeSubTrack(${i})" style="background: #dc3545; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer;">✕</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            const totalDiv = document.getElementById('subTrackTotal');
+            totalDiv.textContent = `סה"כ: ${totalPercent.toFixed(1)}%`;
+            totalDiv.style.color = totalPercent === 100 ? '#28a745' : (totalPercent < 100 ? '#667eea' : '#dc3545');
+        }
+
+        // Auto-fill return rate when selecting sub-track type
+        document.addEventListener('DOMContentLoaded', function() {
+            const typeSelect = document.getElementById('subTrackType');
+            const returnInput = document.getElementById('subTrackReturn');
+            
+            typeSelect.addEventListener('change', function() {
+                const type = this.options[this.selectedIndex].text.split('(')[0].trim();
+                returnInput.value = CONFIG.SUB_TRACK_DEFAULTS[type] || 5;
+            });
+            
+            // Initialize with first value
+            returnInput.value = CONFIG.SUB_TRACK_DEFAULTS['מדדי מניות חו״ל'] || 7;
+        });
+
+        // Show sub-tracks when amount > 0
+        document.getElementById('inputInvAmount').addEventListener('input', function() {
+            const amount = parseFloat(this.value) || 0;
+            document.getElementById('subTracksSection').style.display = amount > 0 ? 'block' : 'none';
+        });
+
+        // Investment CRUD
+        function handleAddInvestment() {
+            const name = document.getElementById('inputInvName').value.trim();
+            const house = document.getElementById('inputInvHouse').value.trim() || 'לא מוגדר';
+            const typeSelect = document.getElementById('inputInvType');
+            const amount = parseFloat(document.getElementById('inputInvAmount').value) || 0;
+            const monthly = parseFloat(document.getElementById('inputInvMonthly').value) || 0;
+            const returnRate = parseFloat(typeSelect.value);
+            const feeDeposit = parseFloat(document.getElementById('inputInvFeeDeposit').value) || 0;
+            const feeAnnual = parseFloat(document.getElementById('inputInvFeeAnnual').value) || 0;
+            const forDream = document.getElementById('inputInvForDream').checked;
+            const includeInCapital = document.getElementById('inputInvInclude').checked;
+            const taxExempt = document.getElementById('inputInvTaxExempt').value === 'yes';
+            const typeName = typeSelect.options[typeSelect.selectedIndex].text;
+
+            if (!name) {
+                alert('אנא הזן שם למסלול');
+                return;
+            }
+
+            // Validate sub-tracks if amount > 0
+            if (amount > 0 && currentSubTracks.length > 0) {
+                const totalPercent = currentSubTracks.reduce((sum, st) => sum + st.percent, 0);
+                if (Math.abs(totalPercent - 100) > 0.01) {
+                    alert(`סך תתי-המסלולים חייב להיות 100%!\nכרגע: ${totalPercent.toFixed(1)}%`);
+                    return;
+                }
+            }
+
+            const investment = {
+                name, house, typeName, amount, monthly, returnRate,
+                feeDeposit, feeAnnual, forDream, includeInCapital, taxExempt,
+                subTracks: [...currentSubTracks]
+            };
+
+            if (appData.editingIndex >= 0) {
+                appData.investments[appData.editingIndex] = investment;
+                appData.editingIndex = -1;
+                cancelEdit();
+            } else {
+                appData.investments.push(investment);
+            }
+
+            clearInvestmentForm();
+            saveDataToStorage();
+            renderInvestmentsList();
+            updateDreamSourceOptions();
+        }
+
+        function clearInvestmentForm() {
+            document.getElementById('inputInvName').value = '';
+            document.getElementById('inputInvHouse').value = '';
+            document.getElementById('inputInvAmount').value = '0';
+            document.getElementById('inputInvMonthly').value = '0';
+            document.getElementById('inputInvFeeDeposit').value = '0';
+            document.getElementById('inputInvFeeAnnual').value = '0';
+            document.getElementById('inputInvForDream').checked = false;
+            document.getElementById('inputInvInclude').checked = true;
+            document.getElementById('inputInvTaxExempt').value = 'yes';
+            currentSubTracks = [];
+            renderSubTracks();
+            document.getElementById('subTracksSection').style.display = 'none';
+        }
+
+        function handleEditInvestment(index) {
+            appData.editingIndex = index;
+            const inv = appData.investments[index];
+            
+            document.getElementById('inputInvName').value = inv.name;
+            document.getElementById('inputInvHouse').value = inv.house || '';
+            document.getElementById('inputInvAmount').value = inv.amount;
+            document.getElementById('inputInvMonthly').value = inv.monthly;
+            document.getElementById('inputInvFeeDeposit').value = inv.feeDeposit || 0;
+            document.getElementById('inputInvFeeAnnual').value = inv.feeAnnual || 0;
+            document.getElementById('inputInvForDream').checked = inv.forDream || false;
+            document.getElementById('inputInvInclude').checked = inv.includeInCapital !== false;
+            document.getElementById('inputInvTaxExempt').value = inv.taxExempt ? 'yes' : 'no';
+            
+            currentSubTracks = inv.subTracks || [];
+            if (inv.amount > 0) {
+                document.getElementById('subTracksSection').style.display = 'block';
+                renderSubTracks();
+            }
+            
+            document.getElementById('formTitle').textContent = 'ערוך מסלול השקעה';
+            document.getElementById('btnAddInvestment').style.display = 'none';
+            document.getElementById('btnUpdateInvestment').style.display = 'block';
+            document.getElementById('btnCancelEdit').style.display = 'block';
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelEdit() {
+            appData.editingIndex = -1;
+            clearInvestmentForm();
+            document.getElementById('formTitle').textContent = 'הוסף מסלול השקעה חדש';
+            document.getElementById('btnAddInvestment').style.display = 'block';
+            document.getElementById('btnUpdateInvestment').style.display = 'none';
+            document.getElementById('btnCancelEdit').style.display = 'none';
+        }
+
+        function handleDeleteInvestment(index) {
+            if (confirm('למחוק מסלול זה?')) {
+                appData.investments.splice(index, 1);
+                saveDataToStorage();
+                renderInvestmentsList();
+                updateDreamSourceOptions();
+            }
+        }
+
+        function renderInvestmentsList() {
+            const container = document.getElementById('listInvestments');
+            const count = document.getElementById('countInvestments');
+            
+            count.textContent = appData.investments.length;
+            
+            if (appData.investments.length === 0) {
+                container.innerHTML = '<div class="empty-msg">אין מסלולי השקעה 📊</div>';
+                return;
+            }
+
+            container.innerHTML = appData.investments.map((inv, index) => {
+                let badges = '';
+                if (inv.forDream) badges += '<span class="badge badge-dream">💫 לחלומות</span>';
+                if (!inv.includeInCapital) badges += '<span class="badge badge-excluded">🚫 לא בהון</span>';
+                
+                let subTracksHTML = '';
+                if (inv.subTracks && inv.subTracks.length > 0) {
+                    subTracksHTML = `
+                        <div class="sub-tracks">
+                            <strong>פיצול:</strong> ${inv.subTracks.map(st => `${st.type} (${st.percent}%, ${st.returnRate}%)`).join(', ')}
+                        </div>
+                    `;
+                }
+                
+                return `
+                    <div class="list-item">
+                        <div class="item-row">
+                            <div>
+                                <div class="item-name">${inv.name} ${badges}</div>
+                                <div class="item-type">${inv.typeName} • ${inv.house}</div>
+                            </div>
+                            <div>
+                                <button class="edit-button" onclick="handleEditInvestment(${index})">✏️ ערוך</button>
+                                <button class="delete-button" onclick="handleDeleteInvestment(${index})">מחק</button>
+                            </div>
+                        </div>
+                        <div class="item-info">
+                            💵 ${formatCurrency(inv.amount)} • 
+                            📅 ${formatCurrency(inv.monthly)}/חודש • 
+                            ${inv.subTracks && inv.subTracks.length > 0 ? '📊 תשואה משוקללת' : `📈 ${inv.returnRate}%`} • 
+                            💼 דמי ניהול: ${inv.feeDeposit}% הפקדה, ${inv.feeAnnual}% צבירה
+                        </div>
+                        ${subTracksHTML}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Dreams
+        function updateDreamSourceOptions() {
+            const select = document.getElementById('inputDreamSource');
+            const dreamInvestments = appData.investments.filter(inv => inv.forDream);
+            
+            select.innerHTML = '<option value="">לא מוגדר</option>' + 
+                dreamInvestments.map((inv, i) => 
+                    `<option value="${appData.investments.indexOf(inv)}">${inv.name}</option>`
+                ).join('');
+        }
+
+        function calculateDreamGap(dream) {
+            if (dream.sourceInvestmentId === undefined) return null;
+            
+            const inv = appData.investments[dream.sourceInvestmentId];
+            if (!inv) return null;
+            
+            const currentYear = new Date().getFullYear();
+            const yearsUntilDream = dream.targetYear - currentYear;
+            
+            if (yearsUntilDream <= 0) return { gap: dream.cost, message: 'החלום כבר עבר!' };
+            
+            const futureCost = dream.cost * Math.pow(1 + CONFIG.INFLATION_RATE / 100, yearsUntilDream);
+            const futureValue = calculateFutureValue(
+                inv.amount, inv.monthly, inv.returnRate, yearsUntilDream,
+                inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks
+            );
+            
+            const gap = futureCost - futureValue;
+            
+            if (gap <= 0) {
+                return { gap: 0, message: `✅ מצוין! יהיה לך ${formatCurrency(Math.abs(gap))} נוסף!` };
+            } else {
+                const monthlyNeeded = gap / (yearsUntilDream * 12);
+                return { 
+                    gap, 
+                    message: `⚠️ חסר ${formatCurrency(gap)}. צריך להוסיף ${formatCurrency(monthlyNeeded)}/חודש` 
+                };
+            }
+        }
+
+        function handleAddDream() {
+            const name = document.getElementById('inputDreamName').value.trim();
+            const cost = parseFloat(document.getElementById('inputDreamCost').value) || 0;
+            const year = parseInt(document.getElementById('inputDreamYear').value);
+            const sourceIndex = document.getElementById('inputDreamSource').value;
+
+            if (!name || cost <= 0) {
+                alert('אנא הזן שם ועלות');
+                return;
+            }
+
+            const dream = { name, cost, year };
+            if (sourceIndex !== '') {
+                dream.sourceInvestmentId = parseInt(sourceIndex);
+            }
+
+            appData.dreams.push(dream);
+            
+            document.getElementById('inputDreamName').value = '';
+            document.getElementById('inputDreamCost').value = '0';
+            
+            saveDataToStorage();
+            renderDreamsList();
+        }
+
+        function handleDeleteDream(index) {
+            if (confirm('למחוק חלום זה?')) {
+                appData.dreams.splice(index, 1);
+                saveDataToStorage();
+                renderDreamsList();
+            }
+        }
+
+        function renderDreamsList() {
+            const container = document.getElementById('listDreams');
+            const count = document.getElementById('countDreams');
+            
+            count.textContent = appData.dreams.length;
+            
+            if (appData.dreams.length === 0) {
+                container.innerHTML = '<div class="empty-msg">אין חלומות 🎯</div>';
+                return;
+            }
+
+            container.innerHTML = appData.dreams.map((dream, index) => {
+                let sourceText = 'לא מוגדר';
+                let gapHTML = '';
+                
+                if (dream.sourceInvestmentId !== undefined) {
+                    const inv = appData.investments[dream.sourceInvestmentId];
+                    if (inv) {
+                        sourceText = inv.name;
+                        const gapData = calculateDreamGap(dream);
+                        if (gapData) {
+                            const boxClass = gapData.gap <= 0 ? 'info-box' : 'warning-box';
+                            gapHTML = `<div class="${boxClass}" style="margin-top: 10px;">${gapData.message}</div>`;
+                        }
+                    }
+                }
+                
+                return `
+                    <div class="list-item">
+                        <div class="item-row">
+                            <div>
+                                <div class="item-name">${dream.name}</div>
+                            </div>
+                            <button class="delete-button" onclick="handleDeleteDream(${index})">מחק</button>
+                        </div>
+                        <div class="item-info">
+                            💰 ${formatCurrency(dream.cost)} • 📅 ${dream.year} • 💫 מקור: ${sourceText}
+                        </div>
+                        ${gapHTML}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Projections
+        function renderProjectionsTable() {
+            const tbody = document.getElementById('tableProjections');
+            const currentYear = new Date().getFullYear();
+            const years = parseInt(document.getElementById('inputProjectionYears').value) || CONFIG.DEFAULT_PROJECTION_YEARS;
+            const rows = [];
+
+            for (let y = 0; y <= years; y += 5) {
+                const year = currentYear + y;
+                let totalNominal = 0;
+                let totalReal = 0;
+
+                appData.investments.forEach(inv => {
+                    if (inv.includeInCapital === false) return;
+                    
+                    const nominal = calculateFutureValue(
+                        inv.amount, inv.monthly, inv.returnRate, y,
+                        inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks
+                    );
+                    totalNominal += nominal;
+                    totalReal += calculateRealValue(nominal, y);
+                });
+
+                rows.push(`
+                    <tr>
+                        <td><strong>${year}</strong></td>
+                        <td>${formatCurrency(totalNominal)}</td>
+                        <td style="color: #4facfe; font-weight: bold;">${formatCurrency(totalReal)}</td>
+                    </tr>
+                `);
+            }
+
+            tbody.innerHTML = rows.join('');
+        }
+
+        // Summary
+        function renderSummaryTab() {
+            const years = parseInt(document.getElementById('inputSummaryYears').value) || CONFIG.DEFAULT_SUMMARY_YEARS;
+            let totalNominal = 0;
+            let totalReal = 0;
+            let totalFees = 0;
+
+            appData.investments.forEach(inv => {
+                if (inv.includeInCapital === false) return;
+                
+                const nominal = calculateFutureValue(
+                    inv.amount, inv.monthly, inv.returnRate, years,
+                    inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks
+                );
+                totalNominal += nominal;
+                totalReal += calculateRealValue(nominal, years);
+                
+                // Calculate fees (simplified - without sub-tracks for now)
+                if (!inv.subTracks || inv.subTracks.length === 0) {
+                    totalFees += calculateTotalFees(inv.amount, inv.monthly, inv.returnRate, years, inv.feeDeposit || 0, inv.feeAnnual || 0);
+                }
+            });
+
+            document.getElementById('summaryYearsLabel').textContent = `(בעוד ${years} שנה${years > 1 ? 'ים' : ''})`;
+            document.getElementById('summaryNominal').textContent = formatCurrency(totalNominal);
+            document.getElementById('summaryReal').textContent = formatCurrency(totalReal);
+            document.getElementById('summaryFees').textContent = formatCurrency(totalFees);
+
+            const container = document.getElementById('summaryBreakdown');
+            
+            if (appData.investments.length === 0) {
+                container.innerHTML = '<div class="empty-msg">אין מסלולים</div>';
+                return;
+            }
+
+            container.innerHTML = appData.investments.map(inv => {
+                const nominal = calculateFutureValue(
+                    inv.amount, inv.monthly, inv.returnRate, years,
+                    inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks
+                );
+                const real = calculateRealValue(nominal, years);
+                
+                let badges = '';
+                if (!inv.includeInCapital) badges = ' <span class="badge badge-excluded">לא נכלל</span>';
+                
+                return `
+                    <div class="list-item">
+                        <div class="item-row">
+                            <div>
+                                <div class="item-name">${inv.name}${badges}</div>
+                                <div class="item-type">${inv.typeName}</div>
+                            </div>
+                            <div style="text-align: left;">
+                                <div style="font-size: 1.3em; font-weight: bold; color: #11998e;">
+                                    ${formatCurrency(nominal)}
+                                </div>
+                                <div style="font-size: 0.95em; color: #4facfe;">
+                                    ${formatCurrency(real)} ריאלי
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Graphs
+        function renderGraphs() {
+            const years = parseInt(document.getElementById('inputSummaryYears').value) || 30;
+            
+            // By Type
+            const byType = {};
+            let total = 0;
+            
+            appData.investments.forEach(inv => {
+                if (inv.includeInCapital === false) return;
+                const value = calculateFutureValue(inv.amount, inv.monthly, inv.returnRate, years, inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+                byType[inv.typeName] = (byType[inv.typeName] || 0) + value;
+                total += value;
+            });
+            
+            renderChart('chartByType', byType, total);
+            
+            // By House
+            const byHouse = {};
+            appData.investments.forEach(inv => {
+                if (inv.includeInCapital === false) return;
+                const value = calculateFutureValue(inv.amount, inv.monthly, inv.returnRate, years, inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+                const house = inv.house || 'לא מוגדר';
+                byHouse[house] = (byHouse[house] || 0) + value;
+            });
+            
+            renderChart('chartByHouse', byHouse, total);
+            
+            // By Tax
+            const byTax = { 'פטור ממס': 0, 'חייב במס': 0 };
+            appData.investments.forEach(inv => {
+                if (inv.includeInCapital === false) return;
+                const value = calculateFutureValue(inv.amount, inv.monthly, inv.returnRate, years, inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+                if (inv.taxExempt) {
+                    byTax['פטור ממס'] += value;
+                } else {
+                    byTax['חייב במס'] += value;
+                }
+            });
+            
+            renderChart('chartByTax', byTax, total);
+        }
+
+        function renderChart(containerId, data, total) {
+            const container = document.getElementById(containerId);
+            
+            if (total === 0) {
+                container.innerHTML = '<div class="empty-msg">אין נתונים</div>';
+                return;
+            }
+            
+            const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+            
+            container.innerHTML = sorted.map(([label, value]) => {
+                const percent = (value / total) * 100;
+                return `
+                    <div class="chart-item">
+                        <div class="chart-label">
+                            <span><strong>${label}</strong></span>
+                            <span>${formatCurrency(value)} (${percent.toFixed(1)}%)</span>
+                        </div>
+                        <div class="chart-bar">
+                            <div class="chart-fill" style="width: ${percent}%;">
+                                ${percent > 10 ? percent.toFixed(1) + '%' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initialize
+        function initializeApp() {
+            loadSavedData();
+            initializeTabs();
+            
+            document.getElementById('btnAddInvestment').addEventListener('click', handleAddInvestment);
+            document.getElementById('btnUpdateInvestment').addEventListener('click', handleAddInvestment);
+            document.getElementById('btnCancelEdit').addEventListener('click', cancelEdit);
+            document.getElementById('btnAddDream').addEventListener('click', handleAddDream);
+            
+            renderInvestmentsList();
+            renderDreamsList();
+            updateDreamSourceOptions();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
+    </script>
+</body>
+</html>
