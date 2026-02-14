@@ -183,8 +183,10 @@
                             <div id="subTracksList" class="sub-tracks-list"></div>
                             
                             <div class="sub-track-add">
-                                <div class="form-grid">
-                                    <select class="form-select" id="subTrackType">
+                                <!-- Row 1: Type Selection -->
+                                <div class="form-group" style="margin-bottom: 16px;">
+                                    <label class="form-label">סוג תת-מסלול</label>
+                                    <select class="form-select" id="subTrackType" style="width: 100%;">
                                         <option value="מדדי מניות חו״ל">מדדי מניות חו״ל (7%)</option>
                                         <option value="מדדי מניות בארץ">מדדי מניות בארץ (7%)</option>
                                         <option value="מניות סחיר חו״ל">מניות סחיר חו״ל (7%)</option>
@@ -196,10 +198,25 @@
                                         <option value="קרן כספית">קרן כספית/פקדון (3%)</option>
                                         <option value="אחר">אחר (5%)</option>
                                     </select>
-                                    <input type="number" class="form-input" id="subTrackPercent" placeholder="%" min="0" max="100" step="0.1">
-                                    <input type="number" class="form-input" id="subTrackReturn" placeholder="תשואה %" step="0.1">
-                                    <button type="button" class="btn btn-success btn-add-track" onclick="addSubTrack()">➕</button>
                                 </div>
+                                
+                                <!-- Row 2: Numbers -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                                    <div class="form-group">
+                                        <label class="form-label">אחוז %</label>
+                                        <input type="number" class="form-input" id="subTrackPercent" placeholder="60" min="0" max="100" step="0.1" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">תשואה %</label>
+                                        <input type="number" class="form-input" id="subTrackReturn" placeholder="7" step="0.1" style="width: 100%;">
+                                    </div>
+                                </div>
+                                
+                                <!-- Row 3: Big Add Button -->
+                                <button type="button" class="btn btn-success" onclick="addSubTrack()" style="width: 100%; min-height: 60px; font-size: 1.5em; margin-bottom: 12px;">
+                                    ➕ הוסף תת-מסלול
+                                </button>
+                                
                                 <div id="subTrackError" class="error-message"></div>
                                 <div id="subTrackTotal" class="sub-track-total"></div>
                             </div>
@@ -436,7 +453,7 @@
         </div>
     </div>
 
-    <!-- Load JavaScript v3.1 - FIXED -->
+    <!-- Load JavaScript -->
     <script src="script.js"></script>
 </body>
 </html>
