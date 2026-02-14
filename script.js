@@ -190,7 +190,7 @@ function setupEventListeners() {
     // Initialize sub-track return rate on load
     const initialType = document.getElementById('subTrackType').options[0].text.split('(')[0].trim();
     document.getElementById('subTrackReturn').value = SUB_TRACK_DEFAULTS[initialType] || 7;
-}
+
 
 function updateTaxRate() {
     const type = document.getElementById('invType').value;
