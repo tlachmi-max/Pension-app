@@ -183,7 +183,7 @@
                             <div id="subTracksList" class="sub-tracks-list"></div>
                             
                             <div class="sub-track-add">
-                                <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr 80px;">
+                                <div class="form-grid">
                                     <select class="form-select" id="subTrackType">
                                         <option value="מדדי מניות חו״ל">מדדי מניות חו״ל (7%)</option>
                                         <option value="מדדי מניות בארץ">מדדי מניות בארץ (7%)</option>
@@ -198,7 +198,7 @@
                                     </select>
                                     <input type="number" class="form-input" id="subTrackPercent" placeholder="%" min="0" max="100" step="0.1">
                                     <input type="number" class="form-input" id="subTrackReturn" placeholder="תשואה %" step="0.1">
-                                    <button type="button" class="btn btn-primary btn-sm" onclick="addSubTrack()">➕</button>
+                                    <button type="button" class="btn btn-success btn-add-track" onclick="addSubTrack()">➕</button>
                                 </div>
                                 <div id="subTrackError" class="error-message"></div>
                                 <div id="subTrackTotal" class="sub-track-total"></div>
@@ -436,7 +436,7 @@
         </div>
     </div>
 
-    <!-- Load JavaScript -->
-    <script src="script.js"></script>
+    <!-- Load JavaScript v3.1 - FIXED -->
+    <script src="script-v3.1-FIXED.js?v=20250213"></script>
 </body>
 </html>

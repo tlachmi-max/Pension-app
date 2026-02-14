@@ -1,7 +1,13 @@
 // ==========================================
-// Financial Planner Pro v3.0
-// Complete JavaScript Logic
+// Financial Planner Pro v3.2 - ALL FIXES
+// Last Updated: 2025-02-13
+// Version: 3.2.0 - Pension Separate + iPhone Fix + Auto-fill
 // ==========================================
+
+console.log('🚀 Financial Planner Pro v3.2.0 Loading...');
+console.log('✅ Pension separate from capital');
+console.log('✅ iPhone plus button fixed');
+console.log('✅ Auto-fill return rate from dropdown');
 
 // Constants
 const INFLATION_RATE = 2;
@@ -150,17 +156,40 @@ function setupEventListeners() {
     });
     
     document.getElementById('invAmount').addEventListener('input', function() {
-        document.getElementById('subTracksSection').style.display = (parseFloat(this.value) || 0) > 0 ? 'block' : 'none';
+        const amount = parseFloat(this.value) || 0;
+        const section = document.getElementById('subTracksSection');
+        section.style.display = amount > 0 ? 'block' : 'none';
+        
+        // Reset return rate when showing sub-tracks
+        if (amount > 0 && currentSubTracks.length === 0) {
+            const returnInput = document.getElementById('invReturn');
+            returnInput.value = '';
+            returnInput.placeholder = 'יחושב אוטומטית מתתי-מסלולים';
+        }
     });
     
+    // Auto-fill return rate from dropdown text
     document.getElementById('subTrackType').addEventListener('change', function() {
-        const type = this.options[this.selectedIndex].text.split('(')[0].trim();
-        document.getElementById('subTrackReturn').value = SUB_TRACK_DEFAULTS[type] || 5;
+        const selectedText = this.options[this.selectedIndex].text;
+        const match = selectedText.match(/\((\d+)%\)/);
+        if (match) {
+            document.getElementById('subTrackReturn').value = match[1];
+        } else {
+            document.getElementById('subTrackReturn').value = '5';
+        }
     });
     
-    // Initialize return rate
-    const type = document.getElementById('subTrackType').options[0].text.split('(')[0].trim();
-    document.getElementById('subTrackReturn').value = SUB_TRACK_DEFAULTS[type] || 7;
+    // Initialize first value
+    const firstOption = document.getElementById('subTrackType').options[0].text;
+    const firstMatch = firstOption.match(/\((\d+)%\)/);
+    if (firstMatch) {
+        document.getElementById('subTrackReturn').value = firstMatch[1];
+    }
+}
+    
+    // Initialize sub-track return rate on load
+    const initialType = document.getElementById('subTrackType').options[0].text.split('(')[0].trim();
+    document.getElementById('subTrackReturn').value = SUB_TRACK_DEFAULTS[initialType] || 7;
 }
 
 function updateTaxRate() {
@@ -274,10 +303,15 @@ function updateWeightedReturn() {
     const returnInput = document.getElementById('invReturn');
     
     if (currentSubTracks.length === 0) {
-        // No sub-tracks, allow manual edit
+        // No sub-tracks - keep field empty and editable
         returnInput.disabled = false;
         returnInput.style.backgroundColor = '';
-        returnInput.placeholder = '';
+        returnInput.style.color = '';
+        returnInput.style.fontWeight = '';
+        returnInput.style.borderColor = '';
+        returnInput.placeholder = 'תיקבע אוטומטית מתתי-מסלולים';
+        returnInput.value = '';
+        returnInput.title = '';
         return;
     }
     
@@ -289,11 +323,17 @@ function updateWeightedReturn() {
     // Set the weighted return and disable editing
     returnInput.value = weightedReturn.toFixed(2);
     returnInput.disabled = true;
-    returnInput.style.backgroundColor = '#e0f2fe';
-    returnInput.style.color = '#0369a1';
-    returnInput.style.fontWeight = '600';
+    returnInput.style.backgroundColor = 'rgba(88, 166, 255, 0.15)';
+    returnInput.style.color = '#58a6ff';
+    returnInput.style.fontWeight = '700';
+    returnInput.style.borderColor = '#58a6ff';
     returnInput.placeholder = 'מחושב אוטומטית';
-    returnInput.title = `תשואה משוקללת: ${currentSubTracks.map(st => `${st.type} (${st.percent}% × ${st.returnRate}%)`).join(' + ')}`;
+    
+    const calculation = currentSubTracks.map(st => 
+        `${st.type}: ${st.percent}% × ${st.returnRate}% = ${(st.percent * st.returnRate / 100).toFixed(2)}%`
+    ).join('\n');
+    
+    returnInput.title = `תשואה משוקללת:\n${calculation}\nסה"כ: ${weightedReturn.toFixed(2)}%`;
 }
 
 // ==========================================
@@ -757,6 +797,11 @@ function renderSummary() {
     let totalTax = 0;
     let totalFees = 0;
     
+    // Separate pension from other investments
+    let pensionNominal = 0;
+    let pensionPrincipal = 0;
+    let pensionTax = 0;
+    
     const breakdown = plan.investments.map(inv => {
         if (!inv.include) return null;
         
@@ -769,15 +814,24 @@ function renderSummary() {
         const fees = nominalNoFees - nominal;
         const real = calculateRealValue(nominal, years);
         
-        totalNominal += nominal;
-        totalPrincipal += principal;
-        totalTax += tax;
+        // Separate pension calculations
+        if (inv.type === 'פנסיה') {
+            pensionNominal += nominal;
+            pensionPrincipal += principal;
+            pensionTax += tax;
+        } else {
+            totalNominal += nominal;
+            totalPrincipal += principal;
+            totalTax += tax;
+        }
+        
         totalFees += fees;
         
         return { inv, nominal, real, tax, principal, fees };
     }).filter(Boolean);
     
     const totalReal = calculateRealValue(totalNominal, years);
+    const pensionReal = calculateRealValue(pensionNominal, years);
     
     document.getElementById('sumNominal').textContent = formatCurrency(totalNominal);
     document.getElementById('sumReal').textContent = formatCurrency(totalReal);
@@ -786,39 +840,62 @@ function renderSummary() {
     document.getElementById('sumYearsLabel').textContent = `בעוד ${years} שנה${years > 1 ? 'ים' : ''}`;
     
     const container = document.getElementById('summaryBreakdown');
-    container.innerHTML = breakdown.map(item => {
+    
+    // Add pension summary if exists
+    let pensionSummaryHTML = '';
+    if (pensionNominal > 0) {
+        pensionSummaryHTML = `
+            <div class="alert alert-info" style="background: rgba(88, 166, 255, 0.15); border-color: #58a6ff; margin-bottom: 20px;">
+                <span class="alert-icon">💰</span>
+                <div style="flex: 1;">
+                    <strong style="font-size: 1.2em; color: #58a6ff;">סיכום פנסיה (מחוץ להון העצמי):</strong><br>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px;">
+                        <div><strong>ערך נומינלי:</strong> <span style="color: #3fb950;">${formatCurrency(pensionNominal)}</span></div>
+                        <div><strong>ערך ריאלי:</strong> <span style="color: #58a6ff;">${formatCurrency(pensionReal)}</span></div>
+                        <div><strong>קרן:</strong> ${formatCurrency(pensionPrincipal)}</div>
+                        <div><strong>מס:</strong> <span style="color: #f85149;">${formatCurrency(pensionTax)}</span></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = pensionSummaryHTML + breakdown.map(item => {
         let pensionHTML = '';
         if (item.inv.type === 'פנסיה' && item.inv.gender) {
             const monthlyPension = calculateMonthlyPension(item.nominal, item.inv.gender);
             pensionHTML = `
-                <div class="alert alert-success" style="margin-top: 12px; padding: 12px;">
-                    💰 <strong>קצבה חודשית:</strong> ${formatCurrency(monthlyPension)}
+                <div class="alert alert-success" style="margin-top: 12px; padding: 12px; background: rgba(63, 185, 80, 0.15); border-color: #3fb950;">
+                    💰 <strong>קצבה חודשית משוערת:</strong> <span style="color: #3fb950; font-size: 1.2em;">${formatCurrency(monthlyPension)}</span>
+                    <small style="display: block; margin-top: 4px; color: #8b949e;">מחושב לפי מקדם ${item.inv.gender === 'male' ? '0.005' : '0.006'}</small>
                 </div>
             `;
         }
+        
+        const typeLabel = item.inv.type === 'פנסיה' ? '💼 פנסיה (מחוץ להון)' : item.inv.type;
         
         return `
             <div class="item">
                 <div class="item-header">
                     <div>
-                        <div class="item-title">${item.inv.name}</div>
-                        <div class="item-subtitle">${item.inv.type}</div>
+                        <div class="item-title" style="color: #f0f6fc;">${item.inv.name}</div>
+                        <div class="item-subtitle" style="color: #8b949e;">${typeLabel}</div>
                     </div>
                     <div style="text-align: left;">
-                        <div style="font-size: 1.5em; font-weight: 700; color: var(--success);">
+                        <div style="font-size: 1.5em; font-weight: 700; color: #3fb950;">
                             ${formatCurrency(item.nominal)}
                         </div>
-                        <div style="color: var(--primary); font-size: 0.95em;">
+                        <div style="color: #58a6ff; font-size: 0.95em;">
                             ${formatCurrency(item.real)} ריאלי
                         </div>
                     </div>
                 </div>
-                <div class="item-details">
-                    <div class="item-detail"><span>💵</span><span>קרן: ${formatCurrency(item.principal)}</span></div>
-                    <div class="item-detail"><span>📈</span><span>רווח: ${formatCurrency(item.nominal - item.principal)}</span></div>
-                    <div class="item-detail"><span>💸</span><span>מס: ${formatCurrency(item.tax)}</span></div>
-                    <div class="item-detail"><span>💼</span><span>דמי ניהול: ${formatCurrency(item.fees)}</span></div>
-                    <div class="item-detail"><span>✅</span><span>נטו: ${formatCurrency(item.nominal - item.tax)}</span></div>
+                <div class="item-details" style="color: #8b949e;">
+                    <div class="item-detail"><span>💵</span><span style="color: #f0f6fc;">קרן: ${formatCurrency(item.principal)}</span></div>
+                    <div class="item-detail"><span>📈</span><span style="color: #3fb950;">רווח: ${formatCurrency(item.nominal - item.principal)}</span></div>
+                    <div class="item-detail"><span>💸</span><span style="color: #f85149;">מס: ${formatCurrency(item.tax)}</span></div>
+                    <div class="item-detail"><span>💼</span><span style="color: #d29922;">דמי ניהול: ${formatCurrency(item.fees)}</span></div>
+                    <div class="item-detail"><span>✅</span><span style="color: #3fb950; font-weight: 700;">נטו: ${formatCurrency(item.nominal - item.tax)}</span></div>
                 </div>
                 ${pensionHTML}
             </div>
