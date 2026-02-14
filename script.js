@@ -151,10 +151,12 @@ function formatCurrency(amount) {
 // ==========================================
 
 function setupEventListeners() {
+    // Gender selection for pension
     document.getElementById('invType').addEventListener('change', function() {
         document.getElementById('genderSection').style.display = this.value === 'פנסיה' ? 'block' : 'none';
     });
     
+    // Show/hide sub-tracks based on amount
     document.getElementById('invAmount').addEventListener('input', function() {
         const amount = parseFloat(this.value) || 0;
         const section = document.getElementById('subTracksSection');
@@ -166,7 +168,23 @@ function setupEventListeners() {
             returnInput.value = '';
             returnInput.placeholder = 'יחושב אוטומטית מתתי-מסלולים';
         }
+        
+        // Initialize sub-track listeners when shown
+        if (amount > 0) {
+            initSubTrackListeners();
+        }
     });
+}
+
+function initSubTrackListeners() {
+    const typeSelect = document.getElementById('subTrackType');
+    const returnInput = document.getElementById('subTrackReturn');
+    
+    if (!typeSelect || !returnInput) return;
+    
+    // Remove old listeners by cloning (prevents duplicates)
+    const newTypeSelect = typeSelect.cloneNode(true);
+    typeSelect.parentNode.replaceChild(newTypeSelect, typeSelect);
     
     // Auto-fill return rate from dropdown text
     document.getElementById('subTrackType').addEventListener('change', function() {
@@ -428,6 +446,7 @@ function editInvestment(index) {
     
     if (inv.amount > 0) {
         document.getElementById('subTracksSection').style.display = 'block';
+        initSubTrackListeners(); // Initialize listeners for sub-track inputs
         renderSubTracks();
         updateWeightedReturn(); // This will disable return input if sub-tracks exist
     }
