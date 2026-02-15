@@ -142,6 +142,30 @@ function calculateMonthlyPension(balance, gender) {
     return balance * (PENSION_COEFFICIENT[gender] || PENSION_COEFFICIENT.male);
 }
 
+// Clean number input - remove commas, extra dots, spaces
+function sanitizeNumber(value) {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    
+    // Convert to string and remove spaces
+    let cleaned = String(value).trim();
+    
+    // Remove all commas
+    cleaned = cleaned.replace(/,/g, '');
+    
+    // Handle multiple dots - keep only the last one as decimal point
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+        // Multiple dots - join all but last, then add last with dot
+        cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+    }
+    
+    // Parse as float
+    const num = parseFloat(cleaned);
+    
+    return isNaN(num) ? 0 : num;
+}
+
 function formatCurrency(amount) {
     return '₪' + Math.round(amount).toLocaleString('he-IL');
 }
@@ -237,8 +261,8 @@ function addSubTrack() {
     const percentInput = document.getElementById('subTrackPercent');
     const returnInput = document.getElementById('subTrackReturn');
     
-    const percent = parseFloat(percentInput.value);
-    const returnRate = parseFloat(returnInput.value);
+    const percent = sanitizeNumber(percentInput.value);
+    const returnRate = sanitizeNumber(returnInput.value);
     
     // Validation
     if (isNaN(percent) || percent <= 0 || percent > 100) {
@@ -363,7 +387,7 @@ function saveInvestment(event) {
         return;
     }
     
-    const amount = parseFloat(document.getElementById('invAmount').value) || 0;
+    const amount = sanitizeNumber(document.getElementById('invAmount').value);
     
     // Validate sub-tracks if amount > 0 and tracks exist
     if (amount > 0 && currentSubTracks.length > 0) {
@@ -378,12 +402,12 @@ function saveInvestment(event) {
         name,
         house: document.getElementById('invHouse').value.trim() || 'לא מוגדר',
         type: document.getElementById('invType').value,
-        tax: parseFloat(document.getElementById('invTax').value) || 0,
+        tax: sanitizeNumber(document.getElementById('invTax').value),
         amount,
-        monthly: parseFloat(document.getElementById('invMonthly').value) || 0,
-        returnRate: parseFloat(document.getElementById('invReturn').value) || 0,
-        feeDeposit: parseFloat(document.getElementById('invFeeDeposit').value) || 0,
-        feeAnnual: parseFloat(document.getElementById('invFeeAnnual').value) || 0,
+        monthly: sanitizeNumber(document.getElementById('invMonthly').value),
+        returnRate: sanitizeNumber(document.getElementById('invReturn').value),
+        feeDeposit: sanitizeNumber(document.getElementById('invFeeDeposit').value),
+        feeAnnual: sanitizeNumber(document.getElementById('invFeeAnnual').value),
         forDream: document.getElementById('invForDream').checked,
         include: document.getElementById('invInclude').checked,
         gender: document.getElementById('invGender').value,
@@ -568,7 +592,7 @@ function saveDream(event) {
     event.preventDefault();
     const plan = getCurrentPlan();
     const name = document.getElementById('dreamName').value.trim();
-    const cost = parseFloat(document.getElementById('dreamCost').value) || 0;
+    const cost = sanitizeNumber(document.getElementById('dreamCost').value);
     
     if (!name || cost <= 0) {
         alert('אנא הזן שם ועלות');
@@ -877,11 +901,24 @@ function renderSummary() {
     container.innerHTML = pensionSummaryHTML + breakdown.map(item => {
         let pensionHTML = '';
         if (item.inv.type === 'פנסיה' && item.inv.gender) {
-            const monthlyPension = calculateMonthlyPension(item.nominal, item.inv.gender);
+            const monthlyPensionNominal = calculateMonthlyPension(item.nominal, item.inv.gender);
+            const monthlyPensionReal = calculateMonthlyPension(item.real, item.inv.gender);
             pensionHTML = `
                 <div class="alert alert-success" style="margin-top: 12px; padding: 12px; background: rgba(63, 185, 80, 0.15); border-color: #3fb950;">
-                    💰 <strong>קצבה חודשית משוערת:</strong> <span style="color: #3fb950; font-size: 1.2em;">${formatCurrency(monthlyPension)}</span>
-                    <small style="display: block; margin-top: 4px; color: #8b949e;">מחושב לפי מקדם ${item.inv.gender === 'male' ? '0.005' : '0.006'}</small>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div>
+                            💰 <strong>קצבה חודשית (נומינלי):</strong> 
+                            <span style="color: #3fb950; font-size: 1.2em;">${formatCurrency(monthlyPensionNominal)}</span>
+                        </div>
+                        <div>
+                            💎 <strong>קצבה חודשית (ריאלי):</strong> 
+                            <span style="color: #58a6ff; font-size: 1.2em;">${formatCurrency(monthlyPensionReal)}</span>
+                            <small style="display: block; color: #8b949e; margin-top: 2px;">כוח קנייה של היום בעוד ${years} שנים</small>
+                        </div>
+                    </div>
+                    <small style="display: block; margin-top: 8px; color: #8b949e; border-top: 1px solid rgba(139, 148, 158, 0.3); padding-top: 8px;">
+                        מחושב לפי מקדם ${item.inv.gender === 'male' ? '0.005 (זכר)' : '0.006 (נקבה)'} | אינפלציה משוערת: 2% שנתי
+                    </small>
                 </div>
             `;
         }
@@ -928,6 +965,7 @@ function renderCharts() {
     // Calculate totals
     const byType = {};
     const byHouse = {};
+    const bySubTrack = {};
     let taxExempt = 0;
     let taxable = 0;
     let total = 0;
@@ -940,6 +978,17 @@ function renderCharts() {
         byType[inv.type] = (byType[inv.type] || 0) + value;
         byHouse[inv.house] = (byHouse[inv.house] || 0) + value;
         
+        // Calculate sub-tracks
+        if (inv.subTracks && inv.subTracks.length > 0) {
+            inv.subTracks.forEach(st => {
+                const subTrackValue = value * (st.percent / 100);
+                bySubTrack[st.type] = (bySubTrack[st.type] || 0) + subTrackValue;
+            });
+        } else {
+            // If no sub-tracks, count as "לא מחולק"
+            bySubTrack['לא מחולק לתתי-מסלולים'] = (bySubTrack['לא מחולק לתתי-מסלולים'] || 0) + value;
+        }
+        
         if (inv.tax > 0) {
             taxable += value;
         } else {
@@ -950,6 +999,7 @@ function renderCharts() {
     });
     
     // Render charts
+    renderPieChart('chartBySubTracks', bySubTrack, 'תתי-מסלולים');
     renderPieChart('chartByType', byType, 'סוג מסלול');
     renderPieChart('chartByHouse', byHouse, 'בית השקעות');
     renderPieChart('chartByTax', { 'פטור ממס': taxExempt, 'חייב במס': taxable }, 'מיסוי');
@@ -1208,3 +1258,110 @@ function render() {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ==========================================
+// TASKS MANAGEMENT
+// ==========================================
+
+let tasks = [];
+
+function loadTasks() {
+    const saved = localStorage.getItem('financialPlannerTasks');
+    if (saved) {
+        try {
+            tasks = JSON.parse(saved);
+        } catch (e) {
+            tasks = [];
+        }
+    }
+}
+
+function saveTasks() {
+    localStorage.setItem('financialPlannerTasks', JSON.stringify(tasks));
+}
+
+function addTask() {
+    const input = document.getElementById('newTask');
+    const text = input.value.trim();
+    
+    if (!text) {
+        alert('אנא הזן טקסט למשימה');
+        return;
+    }
+    
+    tasks.push({
+        id: Date.now(),
+        text,
+        done: false,
+        createdAt: new Date().toISOString()
+    });
+    
+    input.value = '';
+    saveTasks();
+    renderTasks();
+}
+
+function toggleTask(id) {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+        task.done = !task.done;
+        saveTasks();
+        renderTasks();
+    }
+}
+
+function deleteTask(id) {
+    if (!confirm('למחוק משימה זו?')) return;
+    tasks = tasks.filter(t => t.id !== id);
+    saveTasks();
+    renderTasks();
+}
+
+function renderTasks() {
+    const container = document.getElementById('tasksList');
+    if (!container) return;
+    
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">✓</div>
+                <div class="empty-title">אין משימות</div>
+                <div class="empty-text">הוסף את המשימה הראשונה שלך</div>
+            </div>
+        `;
+        document.getElementById('taskProgress').textContent = '0% הושלמו';
+        return;
+    }
+    
+    const completedCount = tasks.filter(t => t.done).length;
+    const progress = Math.round((completedCount / tasks.length) * 100);
+    
+    container.innerHTML = tasks.map(task => `
+        <div class="task-item ${task.done ? 'task-done' : ''}">
+            <input type="checkbox" 
+                   ${task.done ? 'checked' : ''} 
+                   onchange="toggleTask(${task.id})"
+                   class="task-checkbox">
+            <span class="task-text ${task.done ? 'task-text-done' : ''}">${escapeHtml(task.text)}</span>
+            <button class="btn btn-danger btn-sm" onclick="deleteTask(${task.id})">
+                <span>🗑️</span>
+            </button>
+        </div>
+    `).join('');
+    
+    document.getElementById('taskProgress').textContent = `${progress}% הושלמו (${completedCount}/${tasks.length})`;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Load tasks on init
+document.addEventListener('DOMContentLoaded', () => {
+    loadTasks();
+    if (document.getElementById('tasksList')) {
+        renderTasks();
+    }
+});

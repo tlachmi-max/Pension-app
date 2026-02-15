@@ -645,3 +645,96 @@ body {
     .stats-grid { grid-template-columns: 1fr; }
     .sub-track-item { grid-template-columns: 1fr; }
 }
+
+/* Tasks Styles */
+.task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: var(--card-dark);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    transition: all 0.3s;
+}
+
+.task-item:hover {
+    border-color: var(--accent);
+    transform: translateX(-4px);
+}
+
+.task-item.task-done {
+    opacity: 0.6;
+    background: rgba(63, 185, 80, 0.1);
+}
+
+.task-checkbox {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    accent-color: var(--profit);
+}
+
+.task-text {
+    flex: 1;
+    font-size: 1.1em;
+    color: var(--text-light);
+}
+
+.task-text-done {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-icon {
+    font-size: 4em;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-title {
+    font-size: 1.5em;
+    color: var(--text-light);
+    margin-bottom: 8px;
+}
+
+.empty-text {
+    color: var(--text-secondary);
+}
+
+/* Cloud Sync Styles */
+.storage-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(88, 166, 255, 0.2);
+    border-radius: 8px;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.status-icon {
+    font-size: 1.1em;
+}
+
+.status-text {
+    color: var(--text-light);
+}
+
+.btn-cloud {
+    background: rgba(88, 166, 255, 0.1) !important;
+    border: 2px solid rgba(88, 166, 255, 0.3) !important;
+}
+
+.btn-cloud:hover {
+    background: rgba(88, 166, 255, 0.2) !important;
+    border-color: var(--accent) !important;
+}

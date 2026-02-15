@@ -3,26 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת תכנון פיננסי מקצועית | Financial Planner Pro</title>
+    <title>סוכן פיננסי - הסוכן המשפחתי והאישי שלך</title>
+    <meta name="description" content="מערכת לתכנון פיננסי אישי עם תחזיות, גרפים ומחשבון פנסיה">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Theme color for mobile browsers -->
+    <meta name="theme-color" content="#58a6ff">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="icon-512.png">
+    
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="סוכן פיננסי">
+    
     <link rel="stylesheet" href="style.css">
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <!-- Supabase Client (optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <div class="app">
+    <div class="app" id="mainApp">
         <!-- Header -->
         <header class="header">
             <div class="header-left">
                 <div class="app-logo">💰</div>
                 <div class="app-title">
-                    <h1>מערכת תכנון פיננסי מקצועית</h1>
-                    <div class="app-subtitle">נהל את העתיד הפיננסי שלך בצורה חכמה</div>
+                    <h1>סוכן פיננסי</h1>
+                    <div class="app-subtitle">הסוכן המשפחתי והאישי שלך</div>
                 </div>
             </div>
             <div class="header-actions">
+                <!-- Storage Status Indicator -->
+                <div id="storageStatus" class="storage-status" title="מצב שמירה">
+                    <span class="status-icon">💾</span>
+                    <span class="status-text">מקומי</span>
+                </div>
+                
+                <!-- Cloud Sync Button -->
+                <button id="cloudSyncBtn" class="btn-header btn-cloud" onclick="showCloudSync()" title="סנכרון לענן">
+                    <span>☁️</span>
+                    <span>סנכרון</span>
+                </button>
+                
                 <select id="planSelector" class="plan-select" onchange="switchPlan(this.value)">
                     <option value="">בחר תוכנית...</option>
                 </select>
@@ -67,6 +101,10 @@
             <button class="nav-item" data-panel="charts" onclick="switchPanel('charts')">
                 <span>📊</span>
                 <span>גרפים</span>
+            </button>
+            <button class="nav-item" data-panel="tasks" onclick="switchPanel('tasks')">
+                <span>✓</span>
+                <span>משימות</span>
             </button>
         </nav>
 
@@ -419,7 +457,12 @@
             <!-- Panel 5: Charts -->
             <div id="charts" class="panel">
                 <div class="card">
-                    <div class="card-title mb-3">📊 חלוקה לפי סוג מסלול</div>
+                    <div class="card-title mb-3">📊 חלוקה לפי תתי-מסלולים</div>
+                    <canvas id="chartBySubTracks"></canvas>
+                </div>
+                
+                <div class="card">
+                    <div class="card-title mb-3">📈 חלוקה לפי סוג מסלול</div>
                     <canvas id="chartByType"></canvas>
                 </div>
                 
@@ -431,6 +474,41 @@
                 <div class="card">
                     <div class="card-title mb-3">💸 חלוקה לפי מיסוי</div>
                     <canvas id="chartByTax"></canvas>
+                </div>
+            </div>
+
+            <!-- Panel 6: Tasks -->
+            <div id="tasks" class="panel">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>✓</span>
+                            <span>משימות לביצוע ומעקב</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" 
+                               class="form-input" 
+                               id="newTask" 
+                               placeholder="הוסף משימה חדשה..." 
+                               style="flex: 1;"
+                               onkeypress="if(event.key==='Enter') addTask()">
+                        <button class="btn btn-success" onclick="addTask()">
+                            <span>➕</span>
+                            <span>הוסף</span>
+                        </button>
+                    </div>
+                    
+                    <div id="tasksList"></div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <span class="alert-icon">📊</span>
+                        <div>
+                            <strong>התקדמות:</strong>
+                            <span id="taskProgress">0% הושלמו</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -453,7 +531,92 @@
         </div>
     </div>
 
+    <!-- Cloud Sync Modal -->
+    <div id="cloudSyncModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="cloudSyncTitle">☁️ סנכרון לענן</h2>
+                <button class="btn-close" onclick="closeCloudSync()">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Guest Mode Info -->
+                <div id="guestModeInfo" class="alert alert-info">
+                    <span class="alert-icon">💾</span>
+                    <div>
+                        <strong>מצב אורח</strong><br>
+                        הנתונים שלך נשמרים מקומית במכשיר זה בלבד.<br>
+                        התחבר כדי לסנכרן בין מכשירים ולגבות בענן.
+                    </div>
+                </div>
+
+                <!-- Login Form -->
+                <div id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">אימייל</label>
+                        <input type="email" class="form-input" id="cloudEmail" placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">סיסמה</label>
+                        <input type="password" class="form-input" id="cloudPassword" placeholder="••••••">
+                    </div>
+                    <button class="btn btn-primary btn-full" onclick="cloudLogin()">
+                        <span>🔐</span>
+                        <span>התחבר וסנכרן</span>
+                    </button>
+                    <button class="btn btn-secondary btn-full" onclick="showCloudRegister()">
+                        <span>✅</span>
+                        <span>הרשמה</span>
+                    </button>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">אימייל</label>
+                        <input type="email" class="form-input" id="registerEmail" placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">סיסמה</label>
+                        <input type="password" class="form-input" id="registerPassword" placeholder="לפחות 6 תווים">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">אימות סיסמה</label>
+                        <input type="password" class="form-input" id="registerConfirm" placeholder="הזן סיסמה שוב">
+                    </div>
+                    <button class="btn btn-success btn-full" onclick="cloudRegister()">
+                        <span>✅</span>
+                        <span>הרשם וסנכרן</span>
+                    </button>
+                    <button class="btn btn-secondary btn-full" onclick="showCloudLogin()">
+                        <span>◀</span>
+                        <span>חזרה להתחברות</span>
+                    </button>
+                </div>
+
+                <!-- Logged In View -->
+                <div id="loggedInView" style="display: none;">
+                    <div class="alert alert-success">
+                        <span class="alert-icon">✅</span>
+                        <div>
+                            <strong>מחובר לענן</strong><br>
+                            <span id="cloudUserEmail"></span><br>
+                            הנתונים שלך מסונכרנים בזמן אמת
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-full" onclick="cloudLogout()">
+                        <span>🚪</span>
+                        <span>התנתק (המשך מקומי)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Load JavaScript -->
     <script src="script.js"></script>
+    <script src="cloud-sync.js"></script>
+    
+    <!-- PWA Registration -->
+    <script src="pwa-register.js"></script>
 </body>
 </html>
