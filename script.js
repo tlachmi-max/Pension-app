@@ -183,12 +183,16 @@ function setupEventListeners() {
     // Show/hide sub-tracks based on amount
     document.getElementById('invAmount').addEventListener('input', function() {
         const amount = sanitizeNumber(this.value);
+        console.log('📊 Amount changed:', amount); // DEBUG
         const section = document.getElementById('subTracksSection');
-        section.style.display = amount > 0 ? 'block' : 'none';
         
-        // Initialize sub-track listeners when section becomes visible
         if (amount > 0) {
+            section.style.display = 'block';
+            console.log('✅ Showing sub-tracks section'); // DEBUG
             initSubTrackListeners();
+            console.log('✅ initSubTrackListeners called'); // DEBUG
+        } else {
+            section.style.display = 'none';
         }
         
         // Reset return rate when showing sub-tracks

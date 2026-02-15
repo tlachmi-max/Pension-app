@@ -338,30 +338,14 @@ function setupRealtimeSync() {
 // ==========================================
 
 // ==========================================
-// Override saveData to handle cloud sync
-// ==========================================
-
-const originalSaveData = typeof saveData !== 'undefined' ? saveData : null;
-
-function saveData() {
-    // Always save locally first
-    if (originalSaveData) {
-        originalSaveData();
-    } else {
-        localStorage.setItem('financialPlannerData', JSON.stringify(appData));
-    }
-    
-    // If in cloud mode, also save to cloud
-    if (cloudMode && currentUser && supabaseClient) {
-        uploadLocalDataToCloud();
-    }
-}
-
-// ==========================================
 // Initialize on load
 // ==========================================
 
-document.addEventListener('DOMContentLoaded', async () => {
+// Wait for both DOM and main script to load
+window.addEventListener('load', async () => {
+    // Setup cloud sync override AFTER main script loads
+    setupCloudSyncOverride();
+    
     // Try to initialize Supabase
     initSupabase();
     
@@ -377,3 +361,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     updateStorageStatus();
 });
+
+// Setup cloud sync to hook into saveData
+function setupCloudSyncOverride() {
+    // Store reference to original saveData
+    const originalSaveData = window.saveData;
+    
+    // Override saveData to add cloud sync
+    window.saveData = function() {
+        // Call original saveData
+        if (originalSaveData && typeof originalSaveData === 'function') {
+            originalSaveData();
+        }
+        
+        // If in cloud mode, also save to cloud
+        if (cloudMode && currentUser && supabaseClient) {
+            uploadLocalDataToCloud().catch(err => {
+                console.error('Cloud sync error:', err);
+            });
+        }
+    };
+}
