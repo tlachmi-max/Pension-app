@@ -31,6 +31,7 @@ const SUB_TRACK_DEFAULTS = {
 // Global State
 let appData = { plans: [], currentPlanId: null, editingInvestmentIndex: -1 };
 let currentSubTracks = [];
+let currentDreamSources = [];
 let charts = {};
 
 // ==========================================
@@ -608,13 +609,18 @@ function saveDream(event) {
         return;
     }
     
-    const sourceIndex = document.getElementById('dreamSource').value;
+    // Get selected sources (multiple)
+    const sourcesSelect = document.getElementById('dreamSources');
+    const selectedSources = Array.from(sourcesSelect.selectedOptions)
+        .map(opt => opt.value)
+        .filter(v => v !== '')
+        .map(v => parseInt(v));
     
     const dream = {
         name,
         cost,
         year: parseInt(document.getElementById('dreamYear').value),
-        sourceIndex: sourceIndex !== '' ? parseInt(sourceIndex) : null
+        sourceIndices: selectedSources.length > 0 ? selectedSources : null
     };
     
     plan.dreams.push(dream);
@@ -632,34 +638,53 @@ function deleteDream(index) {
 }
 
 function calculateDreamGap(dream) {
-    if (dream.sourceIndex === null) return null;
+    // Handle both old format (sourceIndex) and new format (sourceIndices)
+    const sourceIndices = dream.sourceIndices || 
+                         (dream.sourceIndex !== null && dream.sourceIndex !== undefined ? [dream.sourceIndex] : []);
+    
+    if (sourceIndices.length === 0) return null;
     
     const plan = getCurrentPlan();
-    const inv = plan.investments[dream.sourceIndex];
-    if (!inv) return null;
-    
     const currentYear = new Date().getFullYear();
     const yearsUntilDream = dream.year - currentYear;
     
     if (yearsUntilDream <= 0) return { gap: dream.cost, message: '⏰ החלום כבר עבר!', status: 'past' };
     
     const futureCost = dream.cost * Math.pow(1 + INFLATION_RATE / 100, yearsUntilDream);
-    const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, yearsUntilDream, 
-                                     inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+    const costPerSource = dream.cost / sourceIndices.length;
     
-    const gap = futureCost - futureValue;
+    // Calculate total future value from all sources
+    let totalFutureValue = 0;
+    const validSources = [];
+    
+    for (const idx of sourceIndices) {
+        const inv = plan.investments[idx];
+        if (!inv) continue;
+        
+        const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, yearsUntilDream, 
+                                        inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        
+        // Each source should cover costPerSource, but we count their total
+        totalFutureValue += futureValue;
+        validSources.push(inv.name);
+    }
+    
+    if (validSources.length === 0) return null;
+    
+    const gap = futureCost - totalFutureValue;
     
     if (gap <= 0) {
         return { 
             gap: 0, 
-            message: `✅ מצוין! יהיה לך ${formatCurrency(Math.abs(gap))} נוסף!`,
+            message: `✅ מצוין! ${validSources.length} מקורות יכסו את החלום + ${formatCurrency(Math.abs(gap))} נוסף!`,
             status: 'success'
         };
     } else {
-        const monthlyNeeded = gap / (yearsUntilDream * 12);
+        const monthlyNeededTotal = gap / (yearsUntilDream * 12);
+        const monthlyNeededPerSource = monthlyNeededTotal / validSources.length;
         return { 
             gap, 
-            message: `⚠️ חסר ${formatCurrency(gap)}. צריך להוסיף ${formatCurrency(monthlyNeeded)}/חודש`,
+            message: `⚠️ חסר ${formatCurrency(gap)}. צריך ${formatCurrency(monthlyNeededPerSource)}/חודש לכל מקור (${validSources.length} מקורות)`,
             status: 'warning'
         };
     }
@@ -669,6 +694,15 @@ function renderDreams() {
     const plan = getCurrentPlan();
     const container = document.getElementById('dreamsList');
     document.getElementById('dreamCount').textContent = plan.dreams.length;
+    
+    // Populate sources select
+    const sourcesSelect = document.getElementById('dreamSources');
+    if (sourcesSelect) {
+        sourcesSelect.innerHTML = '<option value="">לא מוגדר</option>' + 
+            plan.investments.map((inv, i) => 
+                `<option value="${i}">${inv.name}</option>`
+            ).join('');
+    }
     
     if (plan.dreams.length === 0) {
         container.innerHTML = `
@@ -682,11 +716,18 @@ function renderDreams() {
     }
     
     container.innerHTML = plan.dreams.map((dream, i) => {
-        let sourceName = 'לא מוגדר';
+        let sourceNames = [];
         let gapHTML = '';
         
-        if (dream.sourceIndex !== null && plan.investments[dream.sourceIndex]) {
-            sourceName = plan.investments[dream.sourceIndex].name;
+        // Handle both old format (sourceIndex) and new format (sourceIndices)
+        const sourceIndices = dream.sourceIndices || 
+                             (dream.sourceIndex !== null && dream.sourceIndex !== undefined ? [dream.sourceIndex] : []);
+        
+        if (sourceIndices.length > 0) {
+            sourceNames = sourceIndices
+                .filter(idx => plan.investments[idx])
+                .map(idx => plan.investments[idx].name);
+            
             const gapData = calculateDreamGap(dream);
             if (gapData) {
                 const alertClass = gapData.status === 'success' ? 'alert-success' : 
@@ -696,6 +737,9 @@ function renderDreams() {
                 </div>`;
             }
         }
+        
+        const sourceText = sourceNames.length > 0 ? sourceNames.join(', ') : 'לא מוגדר';
+        const costPerSource = sourceNames.length > 0 ? dream.cost / sourceNames.length : dream.cost;
         
         return `
             <div class="item">
@@ -712,8 +756,9 @@ function renderDreams() {
                     </div>
                 </div>
                 <div class="item-details">
-                    <div class="item-detail"><span>💰</span><span>עלות: ${formatCurrency(dream.cost)}</span></div>
-                    <div class="item-detail"><span>💫</span><span>מקור: ${sourceName}</span></div>
+                    <div class="item-detail"><span>💰</span><span>עלות כוללת: ${formatCurrency(dream.cost)}</span></div>
+                    ${sourceNames.length > 0 ? `<div class="item-detail"><span>📊</span><span>לכל מקור: ${formatCurrency(costPerSource)}</span></div>` : ''}
+                    <div class="item-detail"><span>💫</span><span>מקורות (${sourceNames.length}): ${sourceText}</span></div>
                 </div>
                 ${gapHTML}
             </div>

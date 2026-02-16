@@ -320,11 +320,16 @@
                                 <input type="number" class="form-input" id="dreamYear" value="2030" min="2025" max="2060" required>
                             </div>
                             
-                            <div class="form-group">
-                                <label class="form-label">מקור מימון</label>
-                                <select class="form-select" id="dreamSource">
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label class="form-label">מקורות מימון (אפשר לבחור מספר)</label>
+                                <select class="form-select" id="dreamSources" multiple style="min-height: 120px;">
                                     <option value="">לא מוגדר</option>
                                 </select>
+                                <p class="sub-tracks-note" style="margin-top: 8px;">
+                                    החלום יתחלק באופן שווה בין המקורות הנבחרים.
+                                    <br>
+                                    <small>💡 טיפ: החזק Ctrl/Cmd ולחץ לבחירת מספר מסלולים</small>
+                                </p>
                             </div>
                         </div>
                         

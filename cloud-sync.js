@@ -115,13 +115,36 @@ async function cloudRegister() {
     try {
         const { data, error } = await supabaseClient.auth.signUp({
             email: email,
-            password: password
+            password: password,
+            options: {
+                emailRedirectTo: undefined,
+                data: {
+                    email_confirmed: true
+                }
+            }
         });
         
         if (error) throw error;
         
-        alert('✅ נרשמת בהצלחה! כעת תוכל להתחבר.');
-        showCloudLogin();
+        // Auto-login after successful registration
+        if (data && data.user) {
+            currentUser = data.user;
+            cloudMode = true;
+            
+            // Upload local data to cloud
+            await uploadLocalDataToCloud();
+            
+            // Start real-time sync
+            setupRealtimeSync();
+            
+            updateStorageStatus();
+            closeCloudSync();
+            
+            alert('✅ נרשמת בהצלחה והתחברת לענן!');
+        } else {
+            alert('✅ נרשמת בהצלחה! כעת תוכל להתחבר.');
+            showCloudLogin();
+        }
     } catch (error) {
         console.error('Registration error:', error);
         alert('❌ שגיאה ברישום: ' + error.message);
