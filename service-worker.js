@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v6.0';  // ← גרסה 6 - תיקון לולאה!
+const CACHE_NAME = 'financial-planner-v8.0';  // ← v8 - תיקון input type!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',
