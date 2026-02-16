@@ -588,7 +588,9 @@ function renderInvestments() {
 
 function updateDreamSources() {
     const plan = getCurrentPlan();
-    const select = document.getElementById('dreamSource');
+    const select = document.getElementById('dreamSources');
+    if (!select) return; // Field doesn't exist yet
+    
     const dreamInvs = plan.investments.filter(inv => inv.forDream);
     
     select.innerHTML = '<option value="">לא מוגדר</option>' + 

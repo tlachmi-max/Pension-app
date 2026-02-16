@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v10.0';  // ← v10 - Multiple dream funding sources!
+const CACHE_NAME = 'financial-planner-v10.1';  // ← v10.1 - Fix dream sources select!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',
