@@ -213,6 +213,7 @@ function setupEventListeners() {
 function initSubTrackListeners() {
     const typeSelect = document.getElementById('subTrackType');
     const returnInput = document.getElementById('subTrackReturn');
+    const customNameField = document.getElementById('customNameField');
     
     if (!typeSelect || !returnInput) return;
     
@@ -220,22 +221,37 @@ function initSubTrackListeners() {
     const newTypeSelect = typeSelect.cloneNode(true);
     typeSelect.parentNode.replaceChild(newTypeSelect, typeSelect);
     
-    // Auto-fill return rate from dropdown text
+    // Auto-fill return rate from dropdown text + show/hide custom name field
     document.getElementById('subTrackType').addEventListener('change', function() {
+        const selectedValue = this.value;
         const selectedText = this.options[this.selectedIndex].text;
-        const match = selectedText.match(/\((\d+)%\)/);
-        if (match) {
-            document.getElementById('subTrackReturn').value = match[1];
+        
+        // Show/hide custom name field for "אחר"
+        if (selectedValue === 'אחר') {
+            customNameField.style.display = 'block';
+            document.getElementById('subTrackReturn').value = '5'; // Default for "אחר"
         } else {
-            document.getElementById('subTrackReturn').value = '5';
+            customNameField.style.display = 'none';
+            document.getElementById('subTrackCustomName').value = ''; // Clear custom name
+            
+            // Auto-fill return rate from dropdown
+            const match = selectedText.match(/\((\d+)%\)/);
+            if (match) {
+                document.getElementById('subTrackReturn').value = match[1];
+            }
         }
     });
     
     // Initialize first value
-    const firstOption = document.getElementById('subTrackType').options[0].text;
-    const firstMatch = firstOption.match(/\((\d+)%\)/);
-    if (firstMatch) {
-        document.getElementById('subTrackReturn').value = firstMatch[1];
+    const firstOption = document.getElementById('subTrackType').options[0];
+    if (firstOption.value === 'אחר') {
+        customNameField.style.display = 'block';
+        document.getElementById('subTrackReturn').value = '5';
+    } else {
+        const firstMatch = firstOption.text.match(/\((\d+)%\)/);
+        if (firstMatch) {
+            document.getElementById('subTrackReturn').value = firstMatch[1];
+        }
     }
 }
 
@@ -267,7 +283,19 @@ function switchPanel(panelName) {
 
 function addSubTrack() {
     const typeSelect = document.getElementById('subTrackType');
-    const type = typeSelect.options[typeSelect.selectedIndex].text.split('(')[0].trim();
+    const typeValue = typeSelect.value;
+    let type = typeSelect.options[typeSelect.selectedIndex].text.split('(')[0].trim();
+    
+    // If "אחר" is selected, use custom name
+    if (typeValue === 'אחר') {
+        const customName = document.getElementById('subTrackCustomName').value.trim();
+        if (!customName) {
+            document.getElementById('subTrackError').textContent = '❌ יש להזין שם לתת-מסלול מותאם';
+            return;
+        }
+        type = customName;
+    }
+    
     const percentInput = document.getElementById('subTrackPercent');
     const returnInput = document.getElementById('subTrackReturn');
     
@@ -302,6 +330,7 @@ function addSubTrack() {
     // Clear inputs
     percentInput.value = '';
     returnInput.value = SUB_TRACK_DEFAULTS[type] || 5;
+    document.getElementById('subTrackCustomName').value = ''; // Clear custom name
     document.getElementById('subTrackError').textContent = '';
     
     renderSubTracks();

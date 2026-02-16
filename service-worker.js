@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v10.2';  // ← v10.2 - Fix sub-tracks display!
+const CACHE_NAME = 'financial-planner-v10.4';  // ← v10.4 - Add "כללי" sub-track type!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',
