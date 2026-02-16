@@ -176,16 +176,30 @@ async function cloudLogin() {
         currentUser = data.user;
         cloudMode = true;
         
-        // Upload local data to cloud
-        await uploadLocalDataToCloud();
+        // Check if user has cloud data
+        const { data: existingData, error: fetchError } = await supabaseClient
+            .from('plans')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .limit(1);
+        
+        if (fetchError) throw fetchError;
+        
+        if (existingData && existingData.length > 0) {
+            // User has cloud data - load it
+            await loadDataFromCloud();
+            alert('✅ התחברת בהצלחה! הנתונים מהענן נטענו.');
+        } else {
+            // No cloud data - upload local data
+            await uploadLocalDataToCloud();
+            alert('✅ התחברת בהצלחה! הנתונים המקומיים הועלו לענן.');
+        }
         
         // Start real-time sync
         setupRealtimeSync();
         
         updateStorageStatus();
         closeCloudSync();
-        
-        alert('✅ התחברת בהצלחה! הנתונים המקומיים הועלו לענן.');
         
     } catch (error) {
         console.error('Login error:', error);
@@ -229,83 +243,34 @@ async function uploadLocalDataToCloud() {
         
         const appData = JSON.parse(localData);
         
-        // Upload plans
-        for (const plan of appData.plans) {
-            const { error: planError } = await supabaseClient
-                .from('plans')
-                .upsert({
-                    id: plan.id,
-                    user_id: currentUser.id,
-                    name: plan.name,
-                    updated_at: new Date().toISOString()
-                });
-            
-            if (planError) throw planError;
-            
-            // Upload investments for this plan
-            if (plan.investments && plan.investments.length > 0) {
-                // Delete old investments
-                await supabaseClient
-                    .from('investments')
-                    .delete()
-                    .eq('plan_id', plan.id);
-                
-                // Insert new investments
-                const investmentsToInsert = plan.investments.map(inv => ({
-                    user_id: currentUser.id,
-                    plan_id: plan.id,
-                    name: inv.name,
-                    type: inv.type,
-                    house: inv.house,
-                    amount: inv.amount,
-                    monthly: inv.monthly,
-                    return_rate: inv.returnRate,
-                    tax: inv.tax,
-                    fee_deposit: inv.feeDeposit,
-                    fee_annual: inv.feeAnnual,
-                    for_dream: inv.forDream,
-                    include: inv.include,
-                    gender: inv.gender,
-                    sub_tracks: inv.subTracks
-                }));
-                
-                const { error: investmentsError } = await supabaseClient
-                    .from('investments')
-                    .insert(investmentsToInsert);
-                
-                if (investmentsError) throw investmentsError;
-            }
-            
-            // Upload dreams for this plan
-            if (plan.dreams && plan.dreams.length > 0) {
-                // Delete old dreams
-                await supabaseClient
-                    .from('dreams')
-                    .delete()
-                    .eq('plan_id', plan.id);
-                
-                // Insert new dreams
-                const dreamsToInsert = plan.dreams.map(dream => ({
-                    user_id: currentUser.id,
-                    plan_id: plan.id,
-                    name: dream.name,
-                    amount: dream.cost || dream.amount,
-                    years: dream.year || dream.years
-                }));
-                
-                const { error: dreamsError } = await supabaseClient
-                    .from('dreams')
-                    .insert(dreamsToInsert);
-                
-                if (dreamsError) throw dreamsError;
-            }
+        // Check if user already has a plan entry
+        const { data: existingPlans, error: fetchError } = await supabaseClient
+            .from('plans')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .limit(1);
+        
+        if (fetchError) throw fetchError;
+        
+        // Upsert all data as single JSONB entry
+        const { error: upsertError } = await supabaseClient
+            .from('plans')
+            .upsert({
+                id: existingPlans && existingPlans.length > 0 ? existingPlans[0].id : undefined,
+                user_id: currentUser.id,
+                data: appData,
+                updated_at: new Date().toISOString()
+            });
+        
+        if (upsertError) {
+            console.error('❌ Upload error:', upsertError);
+            throw upsertError;
         }
         
-        console.log('✅ Local data uploaded to cloud');
-        
+        console.log('✅ Data uploaded successfully');
     } catch (error) {
-        console.error('Error uploading data:', error);
-        alert('שגיאה בהעלאת נתונים לענן: ' + error.message);
+        console.error('❌ Error uploading to cloud:', error);
+        throw error;
     }
 }
 
@@ -315,18 +280,30 @@ async function loadDataFromCloud() {
     try {
         console.log('📥 Loading data from cloud...');
         
-        // Load plans
+        // Load user's data (stored as single JSONB entry)
         const { data: plansData, error: plansError } = await supabaseClient
             .from('plans')
             .select('*')
-            .eq('user_id', currentUser.id);
+            .eq('user_id', currentUser.id)
+            .limit(1);
         
         if (plansError) throw plansError;
         
-        // For each plan, load investments and dreams
-        // (implementation similar to auth.js from previous version)
-        
-        console.log('✅ Data loaded from cloud');
+        if (plansData && plansData.length > 0) {
+            const cloudData = plansData[0].data;
+            
+            // Save to localStorage
+            localStorage.setItem('financialPlannerData', JSON.stringify(cloudData));
+            
+            // Reload the app data
+            if (window.loadData && typeof window.loadData === 'function') {
+                window.loadData();
+            }
+            
+            console.log('✅ Data loaded from cloud and applied');
+        } else {
+            console.log('ℹ️ No cloud data found for this user');
+        }
         
     } catch (error) {
         console.error('Error loading data:', error);
@@ -336,14 +313,14 @@ async function loadDataFromCloud() {
 function setupRealtimeSync() {
     if (!currentUser || !supabaseClient) return;
     
-    // Subscribe to changes
+    // Subscribe to changes in plans table
     const channel = supabaseClient
         .channel('data-changes')
         .on('postgres_changes', 
             { 
                 event: '*', 
                 schema: 'public', 
-                table: 'investments',
+                table: 'plans',
                 filter: `user_id=eq.${currentUser.id}`
             },
             (payload) => {

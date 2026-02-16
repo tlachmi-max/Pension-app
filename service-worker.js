@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v10.4';  // ← v10.4 - Add "כללי" sub-track type!
+const CACHE_NAME = 'financial-planner-v11.1';  // ← v11.1 - Fix cloud sync duplicate code!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',
