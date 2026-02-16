@@ -229,30 +229,45 @@ async function cloudLogout() {
 // ==========================================
 
 async function uploadLocalDataToCloud() {
-    if (!currentUser || !supabaseClient) return;
+    if (!currentUser || !supabaseClient) {
+        alert('🔍 DEBUG: No user or client');
+        return;
+    }
     
     try {
+        alert('📤 DEBUG: Starting upload...');
         console.log('📤 Uploading local data to cloud...');
         
         // Get local data
         const localData = localStorage.getItem('financialPlannerData');
         if (!localData) {
+            alert('🔍 DEBUG: No local data found');
             console.log('No local data to upload');
             return;
         }
         
+        alert('📦 DEBUG: Found local data, parsing...');
         const appData = JSON.parse(localData);
         
+        alert(`📊 DEBUG: Data has ${appData.plans?.length || 0} plans`);
+        
         // Check if user already has a plan entry
+        alert('🔍 DEBUG: Checking existing data...');
         const { data: existingPlans, error: fetchError } = await supabaseClient
             .from('plans')
             .select('*')
             .eq('user_id', currentUser.id)
             .limit(1);
         
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+            alert('❌ DEBUG: Fetch error: ' + fetchError.message);
+            throw fetchError;
+        }
+        
+        alert(`📋 DEBUG: Found ${existingPlans?.length || 0} existing plans`);
         
         // Upsert all data as single JSONB entry
+        alert('💾 DEBUG: Saving to cloud...');
         const { error: upsertError } = await supabaseClient
             .from('plans')
             .upsert({
@@ -263,12 +278,15 @@ async function uploadLocalDataToCloud() {
             });
         
         if (upsertError) {
+            alert('❌ DEBUG: Save error: ' + upsertError.message);
             console.error('❌ Upload error:', upsertError);
             throw upsertError;
         }
         
+        alert('✅ DEBUG: Data saved successfully!');
         console.log('✅ Data uploaded successfully');
     } catch (error) {
+        alert('❌ DEBUG: Exception: ' + error.message);
         console.error('❌ Error uploading to cloud:', error);
         throw error;
     }
@@ -368,17 +386,40 @@ function setupCloudSyncOverride() {
     const originalSaveData = window.saveData;
     
     // Override saveData to add cloud sync
-    window.saveData = function() {
-        // Call original saveData
+    window.saveData = async function() {
+        // Call original saveData (saves to localStorage)
         if (originalSaveData && typeof originalSaveData === 'function') {
             originalSaveData();
         }
         
-        // If in cloud mode, also save to cloud
+        // If in cloud mode, ALSO save directly to cloud
         if (cloudMode && currentUser && supabaseClient) {
-            uploadLocalDataToCloud().catch(err => {
-                console.error('Cloud sync error:', err);
-            });
+            try {
+                // Get the data that was just saved
+                const localData = localStorage.getItem('financialPlannerData');
+                if (!localData) return;
+                
+                const appData = JSON.parse(localData);
+                
+                // Direct save to Supabase
+                const { error } = await supabaseClient
+                    .from('plans')
+                    .upsert({
+                        user_id: currentUser.id,
+                        data: appData,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'user_id'
+                    });
+                
+                if (error) {
+                    console.error('❌ Cloud save error:', error);
+                } else {
+                    console.log('✅ Saved to cloud');
+                }
+            } catch (err) {
+                console.error('❌ Cloud sync error:', err);
+            }
         }
     };
 }
