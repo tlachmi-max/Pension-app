@@ -2,6 +2,10 @@
 // Cloud Sync - Dual Mode (Guest + Cloud)
 // ==========================================
 
+// Supabase Configuration - HARDCODED (not from env)
+const SUPABASE_URL = 'https://nbvdregcwhcwnrcsvwwk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5idmRyZWdjd2hjd25yY3N2d3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjkzMzIsImV4cCI6MjA4Njc0NTMzMn0.En_2BdCIX8LJikIe6bui5SL9hspCKzPpfcRtE5EQvng';
+
 let supabaseClient = null;
 let currentUser = null;
 let cloudMode = false; // false = guest mode, true = cloud mode
@@ -11,42 +15,41 @@ let cloudMode = false; // false = guest mode, true = cloud mode
 // ==========================================
 
 function initSupabase() {
-    // Supabase credentials - pre-configured
-    const SUPABASE_URL = 'https://nbvdregcwhcwnrcsvwwk.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5idmRyZWdjd2hjd25yY3N2d3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjkzMzIsImV4cCI6MjA4Njc0NTMzMn0.En_2BdCIX8LJikIe6bui5SL9hspCKzPpfcRtE5EQvng';
-    
     console.log('🔍 DEBUG: Initializing Supabase...');
     console.log('🔍 DEBUG: SUPABASE_URL:', SUPABASE_URL);
-    console.log('🔍 DEBUG: SUPABASE_KEY exists:', !!SUPABASE_KEY);
-    console.log('🔍 DEBUG: typeof supabase:', typeof supabase);
-    console.log('🔍 DEBUG: window.supabase:', typeof window.supabase);
+    console.log('🔍 DEBUG: SUPABASE_ANON_KEY exists:', !!SUPABASE_ANON_KEY);
+    console.log('🔍 DEBUG: typeof window.supabase:', typeof window.supabase);
     
-    // Check if Supabase library is loaded
-    if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') {
-        console.error('❌ Supabase library not loaded!');
-        alert('❌ Supabase library not loaded! Check CDN connection.');
+    // Check if Supabase library is loaded from CDN
+    if (typeof window.supabase === 'undefined') {
+        console.error('❌ Supabase library NOT loaded from CDN!');
+        alert('❌ חיבור לספריית Supabase נכשל - האפליקציה תעבוד במצב מקומי בלבד');
         return false;
     }
     
-    // Use global supabase object
-    const supabaseLib = typeof supabase !== 'undefined' ? supabase : window.supabase;
+    const { createClient } = window.supabase;
     
-    if (!supabaseLib || !supabaseLib.createClient) {
-        console.error('❌ supabase.createClient not available!');
-        alert('❌ supabase.createClient not available!');
+    if (!createClient) {
+        console.error('❌ createClient not found in window.supabase');
         return false;
     }
     
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         console.error('❌ Missing Supabase credentials!');
         alert('❌ Missing Supabase URL or KEY!');
         return false;
     }
     
     try {
-        supabaseClient = supabaseLib.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Create client
+        supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Save to window for global access
+        window.supabaseClient = supabaseClient;
+        
         console.log('✅ Supabase client created:', supabaseClient);
         console.log('✅ supabaseClient.from:', typeof supabaseClient.from);
+        console.log('✅ supabaseClient.auth:', typeof supabaseClient.auth);
         
         if (!supabaseClient || typeof supabaseClient.from !== 'function') {
             throw new Error('Client created but .from() method missing!');

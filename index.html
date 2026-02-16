@@ -624,6 +624,18 @@
         </div>
     </div>
 
+    <!-- Check Supabase loaded -->
+    <script>
+        console.log('🔍 Checking Supabase library...');
+        console.log('window.supabase:', typeof window.supabase);
+        if (typeof window.supabase !== 'undefined') {
+            console.log('✅ Supabase library loaded from CDN');
+            console.log('createClient available:', typeof window.supabase.createClient);
+        } else {
+            console.error('❌ Supabase library NOT loaded!');
+        }
+    </script>
+
     <!-- Load JavaScript -->
     <script src="script.js"></script>
     <script src="cloud-sync.js"></script>
@@ -632,5 +644,3 @@
     <script src="pwa-register.js"></script>
 </body>
 </html>
-//update
-
