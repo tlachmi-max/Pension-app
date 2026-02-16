@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v12';  // ← v12 - Direct cloud save!
+const CACHE_NAME = 'financial-planner-v12.1';  // ← v12.1 - Fix Supabase init!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

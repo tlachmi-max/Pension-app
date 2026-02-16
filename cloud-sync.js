@@ -15,16 +15,50 @@ function initSupabase() {
     const SUPABASE_URL = 'https://nbvdregcwhcwnrcsvwwk.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5idmRyZWdjd2hjd25yY3N2d3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjkzMzIsImV4cCI6MjA4Njc0NTMzMn0.En_2BdCIX8LJikIe6bui5SL9hspCKzPpfcRtE5EQvng';
     
-    if (SUPABASE_URL && SUPABASE_KEY && typeof supabase !== 'undefined') {
-        try {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log('✅ Supabase initialized');
-            return true;
-        } catch (e) {
-            console.log('⚠️ Supabase not available:', e);
-        }
+    console.log('🔍 DEBUG: Initializing Supabase...');
+    console.log('🔍 DEBUG: SUPABASE_URL:', SUPABASE_URL);
+    console.log('🔍 DEBUG: SUPABASE_KEY exists:', !!SUPABASE_KEY);
+    console.log('🔍 DEBUG: typeof supabase:', typeof supabase);
+    console.log('🔍 DEBUG: window.supabase:', typeof window.supabase);
+    
+    // Check if Supabase library is loaded
+    if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') {
+        console.error('❌ Supabase library not loaded!');
+        alert('❌ Supabase library not loaded! Check CDN connection.');
+        return false;
     }
-    return false;
+    
+    // Use global supabase object
+    const supabaseLib = typeof supabase !== 'undefined' ? supabase : window.supabase;
+    
+    if (!supabaseLib || !supabaseLib.createClient) {
+        console.error('❌ supabase.createClient not available!');
+        alert('❌ supabase.createClient not available!');
+        return false;
+    }
+    
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        console.error('❌ Missing Supabase credentials!');
+        alert('❌ Missing Supabase URL or KEY!');
+        return false;
+    }
+    
+    try {
+        supabaseClient = supabaseLib.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('✅ Supabase client created:', supabaseClient);
+        console.log('✅ supabaseClient.from:', typeof supabaseClient.from);
+        
+        if (!supabaseClient || typeof supabaseClient.from !== 'function') {
+            throw new Error('Client created but .from() method missing!');
+        }
+        
+        console.log('✅ Supabase initialized successfully');
+        return true;
+    } catch (e) {
+        console.error('❌ Supabase initialization error:', e);
+        alert('❌ Supabase init error: ' + e.message);
+        return false;
+    }
 }
 
 // ==========================================
@@ -361,19 +395,35 @@ function setupRealtimeSync() {
 
 // Wait for both DOM and main script to load
 window.addEventListener('load', async () => {
+    console.log('🔍 Window loaded, waiting for Supabase library...');
+    
+    // Wait a bit for Supabase CDN to load
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Setup cloud sync override AFTER main script loads
     setupCloudSyncOverride();
     
     // Try to initialize Supabase
-    initSupabase();
+    const supabaseReady = initSupabase();
+    
+    if (!supabaseReady) {
+        console.error('❌ Supabase failed to initialize - cloud features disabled');
+        alert('⚠️ חיבור לענן נכשל - האפליקציה תעבוד במצב מקומי בלבד');
+        updateStorageStatus();
+        return;
+    }
     
     // Check if user is already logged in
     if (supabaseClient) {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-            currentUser = session.user;
-            cloudMode = true;
-            setupRealtimeSync();
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                cloudMode = true;
+                setupRealtimeSync();
+            }
+        } catch (error) {
+            console.error('❌ Session check error:', error);
         }
     }
     
