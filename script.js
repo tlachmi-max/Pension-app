@@ -651,6 +651,7 @@ function saveDream(event) {
         name,
         cost,
         year: parseInt(document.getElementById('dreamYear').value),
+        month: parseInt(document.getElementById('dreamMonth').value) || 12,
         sourceIndices: selectedSources.length > 0 ? selectedSources : null
     };
     
@@ -777,7 +778,7 @@ function renderDreams() {
                 <div class="item-header">
                     <div>
                         <div class="item-title">${dream.name}</div>
-                        <div class="item-subtitle">שנת יעד: ${dream.year}</div>
+                        <div class="item-subtitle">שנת יעד: ${dream.year}${dream.month ? ' / חודש ' + dream.month : ''}</div>
                     </div>
                     <div class="item-actions">
                         <button class="btn btn-danger btn-sm" onclick="deleteDream(${i})">
@@ -962,6 +963,8 @@ function renderSummary() {
     document.getElementById('sumTax').textContent = formatCurrency(totalTax);
     document.getElementById('sumYearsLabel').textContent = `בעוד ${years} שנה${years > 1 ? 'ים' : ''}`;
     
+    renderActualEquityList();
+    
     const container = document.getElementById('summaryBreakdown');
     
     // Add pension summary if exists
@@ -1051,9 +1054,23 @@ function renderCharts() {
     const byType = {};
     const byHouse = {};
     const bySubTrack = {};
+    const byRisk = { 'מסוכן (מניות/S&P)': 0, 'בינוני (כללי)': 0, 'סולידי (אג"ח/נדל"ן/מזומן)': 0 };
     let taxExempt = 0;
     let taxable = 0;
-    let total = 0;
+    
+    // Risk category mapping
+    const RISK_MAP = {
+        'מדדי מניות חו״ל': 'מסוכן (מניות/S&P)',
+        'מדדי מניות בארץ': 'מסוכן (מניות/S&P)',
+        'מניות סחיר חו״ל': 'מסוכן (מניות/S&P)',
+        'מניות סחיר בארץ': 'מסוכן (מניות/S&P)',
+        'S&P 500': 'מסוכן (מניות/S&P)',
+        'אג״ח': 'סולידי (אג"ח/נדל"ן/מזומן)',
+        'נדל״ן': 'סולידי (אג"ח/נדל"ן/מזומן)',
+        'עו״ש': 'סולידי (אג"ח/נדל"ן/מזומן)',
+        'קרן כספית': 'סולידי (אג"ח/נדל"ן/מזומן)',
+        'כללי': 'בינוני (כללי)'
+    };
     
     plan.investments.forEach(inv => {
         if (!inv.include) return;
@@ -1063,35 +1080,197 @@ function renderCharts() {
         byType[inv.type] = (byType[inv.type] || 0) + value;
         byHouse[inv.house] = (byHouse[inv.house] || 0) + value;
         
-        // Calculate sub-tracks
         if (inv.subTracks && inv.subTracks.length > 0) {
             inv.subTracks.forEach(st => {
                 const subTrackValue = value * (st.percent / 100);
+                // Use custom name as-is (already stored correctly)
                 bySubTrack[st.type] = (bySubTrack[st.type] || 0) + subTrackValue;
+                
+                // Risk classification
+                const riskCategory = RISK_MAP[st.type] || 'בינוני (כללי)';
+                byRisk[riskCategory] = (byRisk[riskCategory] || 0) + subTrackValue;
             });
         } else {
-            // If no sub-tracks, count as "לא מחולק"
             bySubTrack['לא מחולק לתתי-מסלולים'] = (bySubTrack['לא מחולק לתתי-מסלולים'] || 0) + value;
+            byRisk['בינוני (כללי)'] += value;
         }
         
-        if (inv.tax > 0) {
-            taxable += value;
-        } else {
-            taxExempt += value;
-        }
-        
-        total += value;
+        if (inv.tax > 0) taxable += value;
+        else taxExempt += value;
     });
     
-    // Render charts
+    // Risk chart
+    renderRiskChart(byRisk, years);
+    
+    // Equity comparison chart
+    renderEquityCompareChart(years);
+    
+    // Standard charts
     renderPieChart('chartBySubTracks', bySubTrack, 'תתי-מסלולים');
     renderPieChart('chartByType', byType, 'סוג מסלול');
     renderPieChart('chartByHouse', byHouse, 'בית השקעות');
     renderPieChart('chartByTax', { 'פטור ממס': taxExempt, 'חייב במס': taxable }, 'מיסוי');
 }
 
+function renderRiskChart(byRisk, years) {
+    const ctx = document.getElementById('chartRisk');
+    if (!ctx) return;
+    
+    if (charts['chartRisk']) charts['chartRisk'].destroy();
+    
+    const total = Object.values(byRisk).reduce((s, v) => s + v, 0);
+    if (total === 0) {
+        ctx.parentElement.innerHTML += '<div class="empty-state"><div class="empty-text">אין נתונים להצגה</div></div>';
+        return;
+    }
+    
+    const riskWarning = document.getElementById('riskWarning');
+    const currentYear = new Date().getFullYear();
+    
+    // Check all dreams - show warning if any dream is within 10 years
+    const plan = getCurrentPlan();
+    let showWarning = false;
+    if (plan.dreams && plan.dreams.length > 0) {
+        plan.dreams.forEach(d => {
+            if ((d.year - currentYear) < 10) showWarning = true;
+        });
+    }
+    
+    const riskPct = ((byRisk['מסוכן (מניות/S&P)'] || 0) / total * 100).toFixed(0);
+    
+    if (riskWarning) {
+        if (showWarning || riskPct > 60) {
+            riskWarning.style.display = 'block';
+            riskWarning.innerHTML = `⚠️ מתחת ל-10 שנים ליעד, מומלץ לשקול הורדת סיכון. כרגע ${riskPct}% בנכסים מסוכנים.`;
+        } else {
+            riskWarning.style.display = 'none';
+        }
+    }
+    
+    charts['chartRisk'] = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(byRisk).map((l, i) => `${l} (${((Object.values(byRisk)[i]/total)*100).toFixed(1)}%)`),
+            datasets: [{
+                data: Object.values(byRisk),
+                backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                borderWidth: 2,
+                borderColor: '#1e2a3a'
+            }]
+        },
+        options: {
+            responsive: true,
+            layout: { padding: { bottom: 30 } },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    rtl: true,
+                    labels: { font: { size: 13 }, padding: 18, boxWidth: 14 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ' ' + formatCurrency(ctx.parsed)
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderEquityCompareChart(years) {
+    const ctx = document.getElementById('chartEquityCompare');
+    if (!ctx) return;
+    
+    if (charts['chartEquityCompare']) charts['chartEquityCompare'].destroy();
+    
+    const plan = getCurrentPlan();
+    const currentYear = new Date().getFullYear();
+    const planYears = parseInt(document.getElementById('projYears').value) || years;
+    
+    // Build planned projection data (every 5 years or so)
+    const plannedLabels = [];
+    const plannedValues = [];
+    
+    for (let y = 0; y <= planYears; y += 5) {
+        const year = currentYear + y;
+        let totalNominal = 0;
+        plan.investments.forEach(inv => {
+            if (!inv.include) return;
+            totalNominal += calculateFV(inv.amount, inv.monthly, inv.returnRate, y,
+                                        inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        });
+        plannedLabels.push(year.toString());
+        plannedValues.push(Math.round(totalNominal));
+    }
+    
+    // Actual equity points
+    const actualPoints = (plan.actualEquityPoints || []);
+    const actualData = plannedLabels.map(yr => {
+        const pt = actualPoints.find(p => p.year.toString() === yr);
+        return pt ? pt.value : null;
+    });
+    
+    charts['chartEquityCompare'] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: plannedLabels,
+            datasets: [
+                {
+                    label: 'תחזית מתוכננת',
+                    data: plannedValues,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 5
+                },
+                {
+                    label: 'הון בפועל',
+                    data: actualData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.2)',
+                    borderDash: [6, 3],
+                    pointRadius: 8,
+                    pointStyle: 'circle',
+                    fill: false,
+                    spanGaps: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            layout: { padding: { bottom: 20 } },
+            scales: {
+                x: {
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 45,
+                        minRotation: 0,
+                        font: { size: 11 }
+                    }
+                },
+                y: {
+                    ticks: {
+                        callback: v => '₪' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v)
+                    }
+                }
+            },
+            plugins: {
+                legend: { position: 'bottom', rtl: true, labels: { padding: 18 } },
+                tooltip: {
+                    rtl: true,
+                    callbacks: {
+                        label: ctx => ' ' + ctx.dataset.label + ': ' + formatCurrency(ctx.parsed.y)
+                    }
+                }
+            }
+        }
+    });
+}
+
 function renderPieChart(canvasId, data, label) {
     const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
     
     // Destroy existing chart if exists
     if (charts[canvasId]) {
@@ -1118,19 +1297,32 @@ function renderPieChart(canvasId, data, label) {
                     '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'
                 ],
                 borderWidth: 2,
-                borderColor: '#fff'
+                borderColor: '#1e2a3a'
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            layout: {
+                padding: { bottom: 30, top: 10, left: 10, right: 10 }
+            },
             plugins: {
                 legend: {
                     position: 'bottom',
                     rtl: true,
                     labels: {
                         font: { size: 12, family: 'Heebo' },
-                        padding: 15
+                        padding: 18,
+                        boxWidth: 14,
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            return data.labels.map((label, i) => ({
+                                text: label,
+                                fillStyle: data.datasets[0].backgroundColor[i],
+                                hidden: false,
+                                index: i
+                            }));
+                        }
                     }
                 },
                 tooltip: {
@@ -1336,6 +1528,7 @@ function render() {
     renderInvestments();
     renderDreams();
     updateDreamSources();
+    renderActualEquityList();
 }
 
 // ==========================================
@@ -1450,3 +1643,182 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTasks();
     }
 });
+
+// ==========================================
+// ACTUAL EQUITY TRACKING
+// ==========================================
+
+function addActualEquityPoint() {
+    const yearInput = document.getElementById('actualEquityYear');
+    const valueInput = document.getElementById('actualEquityValue');
+    const year = parseInt(yearInput.value);
+    const value = sanitizeNumber(valueInput.value);
+    
+    if (!year || year < 2024) { alert('אנא הזן שנה תקינה'); return; }
+    if (!value || value <= 0) { alert('אנא הזן ערך הון תקין'); return; }
+    
+    const plan = getCurrentPlan();
+    if (!plan.actualEquityPoints) plan.actualEquityPoints = [];
+    
+    // Replace if year exists
+    const existing = plan.actualEquityPoints.findIndex(p => p.year === year);
+    if (existing >= 0) plan.actualEquityPoints[existing] = { year, value };
+    else plan.actualEquityPoints.push({ year, value });
+    
+    plan.actualEquityPoints.sort((a, b) => a.year - b.year);
+    saveData();
+    
+    yearInput.value = '';
+    valueInput.value = '';
+    renderActualEquityList();
+}
+
+function removeActualEquityPoint(year) {
+    const plan = getCurrentPlan();
+    if (!plan.actualEquityPoints) return;
+    plan.actualEquityPoints = plan.actualEquityPoints.filter(p => p.year !== year);
+    saveData();
+    renderActualEquityList();
+}
+
+function renderActualEquityList() {
+    const plan = getCurrentPlan();
+    const container = document.getElementById('actualEquityList');
+    if (!container) return;
+    
+    const points = plan.actualEquityPoints || [];
+    if (points.length === 0) {
+        container.innerHTML = '<div style="color:#8b949e;font-size:0.9em;">אין נקודות הון בפועל עדיין</div>';
+        return;
+    }
+    
+    container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+        <tr style="border-bottom:1px solid var(--border);"><th>שנה</th><th>הון בפועל</th><th></th></tr>
+        ${points.map(p => `
+            <tr style="border-bottom:1px solid var(--border)20;">
+                <td style="padding:6px;">${p.year}</td>
+                <td style="padding:6px;color:#10b981;font-weight:600;">${formatCurrency(p.value)}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="removeActualEquityPoint(${p.year})">✕</button></td>
+            </tr>
+        `).join('')}
+    </table>`;
+}
+
+// ==========================================
+// EXPORT - CHART IMAGES
+// ==========================================
+
+function downloadChart(canvasId, name) {
+    const chart = charts[canvasId];
+    if (!chart) { alert('הגרף אינו טעון עדיין. עבור לפאנל הגרפים תחילה.'); return; }
+    const url = chart.canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}.png`;
+    a.click();
+}
+
+function exportChartsImages() {
+    // Export all loaded charts as zip-like sequential downloads
+    const chartIds = ['chartRisk', 'chartBySubTracks', 'chartByType', 'chartByHouse', 'chartByTax', 'chartEquityCompare'];
+    const names = ['פרופיל_סיכון', 'תתי_מסלולים', 'סוג_מסלול', 'בית_השקעות', 'מיסוי', 'השוואת_הון'];
+    
+    let downloaded = 0;
+    chartIds.forEach((id, i) => {
+        if (charts[id]) {
+            setTimeout(() => downloadChart(id, names[i]), i * 300);
+            downloaded++;
+        }
+    });
+    
+    if (downloaded === 0) {
+        alert('אנא עבור לפאנל הגרפים תחילה כדי לטעון את הגרפים');
+    }
+}
+
+// ==========================================
+// EXPORT - ANALYTICS EXCEL
+// ==========================================
+
+function exportAnalyticsExcel() {
+    const plan = getCurrentPlan();
+    const years = parseInt(document.getElementById('sumYears').value) || 30;
+    const currentYear = new Date().getFullYear();
+    
+    try {
+        const wb = XLSX.utils.book_new();
+        
+        // Risk distribution sheet
+        const RISK_MAP = {
+            'מדדי מניות חו״ל': 'מסוכן', 'מדדי מניות בארץ': 'מסוכן',
+            'מניות סחיר חו״ל': 'מסוכן', 'מניות סחיר בארץ': 'מסוכן',
+            'S&P 500': 'מסוכן', 'אג״ח': 'סולידי', 'נדל״ן': 'סולידי',
+            'עו״ש': 'סולידי', 'קרן כספית': 'סולידי', 'כללי': 'בינוני'
+        };
+        
+        const riskRows = [];
+        plan.investments.forEach(inv => {
+            if (!inv.include) return;
+            const value = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
+                                      inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+            if (inv.subTracks && inv.subTracks.length > 0) {
+                inv.subTracks.forEach(st => {
+                    riskRows.push({
+                        'מסלול': inv.name,
+                        'תת-מסלול': st.type,
+                        'אחוז': st.percent,
+                        'ערך עתידי': Math.round(value * st.percent / 100),
+                        'רמת סיכון': RISK_MAP[st.type] || 'בינוני'
+                    });
+                });
+            } else {
+                riskRows.push({ 'מסלול': inv.name, 'תת-מסלול': 'לא מחולק', 'אחוז': 100, 'ערך עתידי': Math.round(value), 'רמת סיכון': 'בינוני' });
+            }
+        });
+        
+        const ws1 = XLSX.utils.json_to_sheet(riskRows);
+        XLSX.utils.book_append_sheet(wb, ws1, 'התפלגות סיכון');
+        
+        // Projection vs actual sheet
+        const projRows = [];
+        for (let y = 0; y <= years; y += 5) {
+            const yr = currentYear + y;
+            let totalNominal = 0;
+            plan.investments.forEach(inv => {
+                if (!inv.include) return;
+                totalNominal += calculateFV(inv.amount, inv.monthly, inv.returnRate, y,
+                                            inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+            });
+            const actualPt = (plan.actualEquityPoints || []).find(p => p.year === yr);
+            projRows.push({
+                'שנה': yr,
+                'תחזית (₪)': Math.round(totalNominal),
+                'בפועל (₪)': actualPt ? actualPt.value : '',
+                'סטייה (₪)': actualPt ? (actualPt.value - Math.round(totalNominal)) : ''
+            });
+        }
+        
+        const ws2 = XLSX.utils.json_to_sheet(projRows);
+        XLSX.utils.book_append_sheet(wb, ws2, 'צפי מול ביצוע');
+        
+        XLSX.writeFile(wb, `אנליטיקה_${plan.name}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (e) {
+        console.error('Analytics export error:', e);
+        alert('שגיאה בייצוא אנליטיקה');
+    }
+}
+
+// ==========================================
+// PRINT REPORT
+// ==========================================
+
+function printReport() {
+    window.print();
+}
+
+// ==========================================
+// BACKWARD COMPATIBLE IMPORT
+// ==========================================
+// importExcel already handles missing fields gracefully via || defaults
+// (gender, age, subTracks etc. all default to safe values)
+

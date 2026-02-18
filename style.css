@@ -738,3 +738,89 @@ body {
     background: rgba(88, 166, 255, 0.2) !important;
     border-color: var(--accent) !important;
 }
+
+/* ==========================================
+   PRINT STYLES - Clean A4 Report
+   ========================================== */
+@media print {
+    * { box-sizing: border-box; }
+    
+    body {
+        background: white !important;
+        color: #111 !important;
+        font-family: 'Heebo', Arial, sans-serif;
+        font-size: 12pt;
+        direction: rtl;
+    }
+    
+    .header-actions,
+    .nav,
+    .btn,
+    .btn-header,
+    .modal,
+    #cloudSyncModal,
+    #planModal,
+    .form-actions,
+    #investmentForm,
+    #dreamForm,
+    .sub-track-add,
+    [onclick],
+    button { display: none !important; }
+    
+    .header {
+        background: white !important;
+        border-bottom: 2px solid #333 !important;
+        padding: 12px 20px !important;
+        margin-bottom: 20px !important;
+    }
+    
+    .header h1 { color: #111 !important; font-size: 20pt !important; }
+    
+    .app { background: white !important; }
+    .content { padding: 0 !important; }
+    
+    .panel { display: block !important; }
+    .panel:not(.active) { display: none !important; }
+    
+    .card {
+        background: white !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
+    }
+    
+    .card-title, .stat-label { color: #333 !important; }
+    .stat-value { color: #111 !important; font-size: 18pt !important; }
+    .item-title { color: #111 !important; }
+    .item-subtitle, .item-detail { color: #444 !important; }
+    
+    canvas {
+        max-width: 100% !important;
+        page-break-inside: avoid;
+    }
+    
+    .stats-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .stat-card {
+        border: 1px solid #ccc !important;
+        background: white !important;
+        page-break-inside: avoid;
+    }
+    
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
+    
+    @page {
+        size: A4;
+        margin: 15mm 10mm;
+    }
+    
+    h2, h3 { color: #111 !important; page-break-after: avoid; }
+    
+    .alert { border: 1px solid #ccc !important; background: #f9f9f9 !important; color: #111 !important; }
+}
