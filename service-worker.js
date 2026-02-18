@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v12.2';  // ← v12.2 - Global constants!
+const CACHE_NAME = 'financial-planner-v13';  // ← v13 - ALL CRITICAL FIXES!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

@@ -64,20 +64,12 @@
                     <span>📂</span>
                     <span>תוכניות</span>
                 </button>
-                <button class="btn-header" onclick="printReport()" title="הדפסת דו״ח">
-                    <span>🖨️</span>
-                    <span>הדפס</span>
-                </button>
-                <button class="btn-header" onclick="exportChartsImages()" title="הורד גרפים">
-                    <span>🖼️</span>
-                    <span>גרפים</span>
-                </button>
-                <button class="btn-header" onclick="exportAnalyticsExcel()" title="ייצוא אנליטיקה">
-                    <span>📊</span>
-                    <span>אנליטיקה</span>
+                <button class="btn-header" onclick="exportToPDF()" title="ייצוא ל-PDF">
+                    <span>📄</span>
+                    <span>PDF</span>
                 </button>
                 <button class="btn-header" onclick="exportToExcel()" title="ייצוא ל-Excel">
-                    <span>📋</span>
+                    <span>📊</span>
                     <span>Excel</span>
                 </button>
                 <button class="btn-header" onclick="document.getElementById('excelImport').click()" title="ייבוא Excel">
@@ -202,7 +194,6 @@
                             <div class="form-group">
                                 <label class="form-label">דמי ניהול מצבירה (% שנתי)</label>
                                 <input type="number" class="form-input" id="invFeeAnnual" value="0" min="0" max="5" step="0.01">
-                                <small style="color: #d29922; display:block; margin-top:4px;">⚠️ שימו לב לתוספת הוצאות של בית ההשקעות</small>
                             </div>
                             
                             <div class="form-group">
@@ -336,24 +327,6 @@
                                 <input type="number" class="form-input" id="dreamYear" value="2030" min="2025" max="2060" required>
                             </div>
                             
-                            <div class="form-group">
-                                <label class="form-label">חודש יעד</label>
-                                <select class="form-select" id="dreamMonth">
-                                    <option value="1">ינואר</option>
-                                    <option value="2">פברואר</option>
-                                    <option value="3">מרץ</option>
-                                    <option value="4">אפריל</option>
-                                    <option value="5">מאי</option>
-                                    <option value="6">יוני</option>
-                                    <option value="7">יולי</option>
-                                    <option value="8">אוגוסט</option>
-                                    <option value="9">ספטמבר</option>
-                                    <option value="10">אוקטובר</option>
-                                    <option value="11">נובמבר</option>
-                                    <option value="12" selected>דצמבר</option>
-                                </select>
-                            </div>
-                            
                             <div class="form-group" style="grid-column: 1 / -1;">
                                 <label class="form-label">מקורות מימון (אפשר לבחור מספר)</label>
                                 <select class="form-select" id="dreamSources" multiple style="min-height: 120px;">
@@ -461,22 +434,6 @@
                     </div>
                 </div>
                 
-                <div class="card" style="margin-bottom: 16px;">
-                    <div class="card-title mb-2">📊 מעקב הון בפועל</div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
-                        <div class="form-group" style="margin:0;">
-                            <label class="form-label">שנה לבדיקה</label>
-                            <input type="number" class="form-input" id="actualEquityYear" placeholder="לדוגמה: 2028" min="2024" max="2075">
-                        </div>
-                        <div class="form-group" style="margin:0;">
-                            <label class="form-label">הון עצמי בפועל (₪)</label>
-                            <input type="text" inputmode="numeric" class="form-input" id="actualEquityValue" placeholder="לדוגמה: 500000">
-                        </div>
-                        <button class="btn btn-success" onclick="addActualEquityPoint()">הוסף</button>
-                    </div>
-                    <div id="actualEquityList" style="margin-top:12px;"></div>
-                </div>
-                
                 <div class="stats-grid">
                     <div class="stat-card green">
                         <div class="stat-label">ערך נומינלי כולל</div>
@@ -511,53 +468,35 @@
 
             <!-- Panel 5: Charts -->
             <div id="charts" class="panel">
-                <div class="card" id="chartCard-riskPie">
-                    <div class="card-title mb-3" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>🔴 פרופיל סיכון - התפלגות נכסים</span>
-                        <button class="btn btn-primary btn-sm" onclick="downloadChart('chartRisk', 'פרופיל_סיכון')">⬇️ PNG</button>
-                    </div>
-                    <canvas id="chartRisk"></canvas>
-                    <div id="riskWarning" style="display:none;" class="alert alert-warning" style="margin-top:12px;"></div>
-                </div>
-                
-                <div class="card" id="chartCard-equityCompare">
-                    <div class="card-title mb-3" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>📈 השוואת הון - תכנון מול ביצוע</span>
-                        <button class="btn btn-primary btn-sm" onclick="downloadChart('chartEquityCompare', 'השוואת_הון')">⬇️ PNG</button>
-                    </div>
-                    <canvas id="chartEquityCompare"></canvas>
-                </div>
-                
-                <div class="card" id="chartCard-subTracks">
-                    <div class="card-title mb-3" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>📊 חלוקה לפי תתי-מסלולים</span>
-                        <button class="btn btn-primary btn-sm" onclick="downloadChart('chartBySubTracks', 'תתי_מסלולים')">⬇️ PNG</button>
-                    </div>
+                <div class="card">
+                    <div class="card-title mb-3">📊 חלוקה לפי תתי-מסלולים</div>
                     <canvas id="chartBySubTracks"></canvas>
                 </div>
                 
-                <div class="card" id="chartCard-byType">
-                    <div class="card-title mb-3" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>📈 חלוקה לפי סוג מסלול</span>
-                        <button class="btn btn-primary btn-sm" onclick="downloadChart('chartByType', 'סוג_מסלול')">⬇️ PNG</button>
-                    </div>
+                <div class="card">
+                    <div class="card-title mb-3">📈 חלוקה לפי סוג מסלול</div>
                     <canvas id="chartByType"></canvas>
                 </div>
                 
-                <div class="card" id="chartCard-byHouse">
-                    <div class="card-title mb-3" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>🏢 חלוקה לפי בית השקעות</span>
-                        <button class="btn btn-primary btn-sm" onclick="downloadChart('chartByHouse', 'בית_השקעות')">⬇️ PNG</button>
-                    </div>
+                <div class="card">
+                    <div class="card-title mb-3">🏢 חלוקה לפי בית השקעות</div>
                     <canvas id="chartByHouse"></canvas>
                 </div>
                 
-                <div class="card" id="chartCard-byTax">
-                    <div class="card-title mb-3" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>💸 חלוקה לפי מיסוי</span>
-                        <button class="btn btn-primary btn-sm" onclick="downloadChart('chartByTax', 'מיסוי')">⬇️ PNG</button>
-                    </div>
+                <div class="card">
+                    <div class="card-title mb-3">💸 חלוקה לפי מיסוי</div>
                     <canvas id="chartByTax"></canvas>
+                </div>
+                
+                <div class="card">
+                    <div class="card-title mb-3">⚠️ חלוקה לפי רמת סיכון</div>
+                    <canvas id="chartByRisk"></canvas>
+                </div>
+                
+                <div class="card">
+                    <div class="card-title mb-3">📸 נקודת ייחוס</div>
+                    <p style="margin-bottom: 16px;">שמור את מצב התיק הנוכחי כנקודת התחלה להשוואה עתידית</p>
+                    <button class="btn btn-primary" onclick="saveSnapshot()">📸 שמור נקודת ייחוס</button>
                 </div>
             </div>
 
