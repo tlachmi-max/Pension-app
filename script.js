@@ -85,6 +85,32 @@ function getSnapshot() {
     return ref ? parseFloat(ref) : null;
 }
 
+// ==========================================
+// CHART DOWNLOAD
+// ==========================================
+
+function downloadChart(canvasId, chartName) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        alert('❌ גרף לא נמצא');
+        return;
+    }
+    
+    try {
+        // Convert canvas to image
+        const link = document.createElement('a');
+        link.download = `גרף-${chartName}-${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        // Optional: Show success message
+        console.log(`✅ גרף ${chartName} הורד בהצלחה`);
+    } catch (error) {
+        console.error('Chart download error:', error);
+        alert('❌ שגיאה בהורדת הגרף');
+    }
+}
+
 // Global State
 let appData = { plans: [], currentPlanId: null, editingInvestmentIndex: -1 };
 let currentSubTracks = [];
