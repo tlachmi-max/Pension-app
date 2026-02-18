@@ -245,17 +245,6 @@
                                     <input type="text" class="form-input" id="subTrackCustomName" placeholder="לדוגמה: קרן נאמנות טכנולוגיה" style="width: 100%;">
                                 </div>
                                 
-                                <!-- Manual Risk Level (shown for נדל"ן and אחר) -->
-                                <div class="form-group" id="manualRiskField" style="margin-bottom: 16px; display: none;">
-                                    <label class="form-label">רמת סיכון (בחירה ידנית)</label>
-                                    <select class="form-select" id="subTrackRiskLevel" style="width: 100%;">
-                                        <option value="">בחר רמת סיכון...</option>
-                                        <option value="low">נמוך 🟢</option>
-                                        <option value="medium">בינוני 🟡</option>
-                                        <option value="high">גבוה 🔴</option>
-                                    </select>
-                                </div>
-                                
                                 <!-- Row 2: Numbers -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
                                     <div class="form-group">
@@ -482,41 +471,26 @@
                 <div class="card">
                     <div class="card-title mb-3">📊 חלוקה לפי תתי-מסלולים</div>
                     <canvas id="chartBySubTracks"></canvas>
-                    <button class="btn btn-sm btn-secondary" onclick="downloadChart('chartBySubTracks', 'תתי-מסלולים')" style="margin-top: 12px; width: 100%;">
-                        💾 שמור כתמונה
-                    </button>
                 </div>
                 
                 <div class="card">
                     <div class="card-title mb-3">📈 חלוקה לפי סוג מסלול</div>
                     <canvas id="chartByType"></canvas>
-                    <button class="btn btn-sm btn-secondary" onclick="downloadChart('chartByType', 'סוג-מסלול')" style="margin-top: 12px; width: 100%;">
-                        💾 שמור כתמונה
-                    </button>
                 </div>
                 
                 <div class="card">
                     <div class="card-title mb-3">🏢 חלוקה לפי בית השקעות</div>
                     <canvas id="chartByHouse"></canvas>
-                    <button class="btn btn-sm btn-secondary" onclick="downloadChart('chartByHouse', 'בית-השקעות')" style="margin-top: 12px; width: 100%;">
-                        💾 שמור כתמונה
-                    </button>
                 </div>
                 
                 <div class="card">
                     <div class="card-title mb-3">💸 חלוקה לפי מיסוי</div>
                     <canvas id="chartByTax"></canvas>
-                    <button class="btn btn-sm btn-secondary" onclick="downloadChart('chartByTax', 'מיסוי')" style="margin-top: 12px; width: 100%;">
-                        💾 שמור כתמונה
-                    </button>
                 </div>
                 
                 <div class="card">
                     <div class="card-title mb-3">⚠️ חלוקה לפי רמת סיכון</div>
                     <canvas id="chartByRisk"></canvas>
-                    <button class="btn btn-sm btn-secondary" onclick="downloadChart('chartByRisk', 'סיכון')" style="margin-top: 12px; width: 100%;">
-                        💾 שמור כתמונה
-                    </button>
                 </div>
                 
                 <div class="card">
