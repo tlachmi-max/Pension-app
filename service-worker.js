@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v15.1';  // ← v15.1 - SYNTAX FIX!
+const CACHE_NAME = 'financial-planner-v15.2';  // ← v15.2 - WORKING!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

@@ -1413,16 +1413,6 @@ function renderRiskPieChart(subTrackObjects) {
         }
     });
 }
-                    callbacks: {
-                        label: function(context) {
-                            return ' ' + formatCurrency(context.parsed);
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
 
 // ==========================================
 // PLAN MANAGEMENT
