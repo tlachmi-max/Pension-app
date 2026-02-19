@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v13.1';  // ← v13.1 - Chart download buttons!
+const CACHE_NAME = 'financial-planner-v15.0';  // ← v15.0 - Manual risk level!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

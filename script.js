@@ -32,13 +32,32 @@ const SUB_TRACK_DEFAULTS = {
 // RISK CLASSIFICATION & HELPERS
 // ==========================================
 
-function classifyRisk(subTrackType) {
-    const lowRisk = ['קרן כספית', 'עו"ש', 'פיקדון', 'אג"ח ממשלתי', 'אג"ח קונצרני', 'אג"ח'];
-    const highRisk = ['עוקב מדדי מניות', 'S&P 500', 'מניות סחיר', 'מדדי מניות חו"ל', 'מדדי מניות בארץ', 'מניות סחיר חו"ל', 'מניות סחיר בארץ'];
+function classifyRisk(subTrack) {
+    // If it's an object with manualRisk, use that
+    if (typeof subTrack === 'object' && subTrack.manualRisk) {
+        return subTrack.manualRisk;
+    }
     
+    // Otherwise get the type string
+    const subTrackType = typeof subTrack === 'object' ? subTrack.type : subTrack;
+    
+    // Auto-classification
+    const lowRisk = ['קרן כספית', 'עו"ש', 'פיקדון', 'אג"ח ממשלתי', 'אג"ח קונצרני', 'אג"ח'];
+    const highRisk = ['S&P 500', 'מניות סחיר', 'מדדי מניות חו"ל', 'מדדי מניות בארץ', 'מניות סחיר חו"ל', 'מניות סחיר בארץ'];
+    
+    // כללי = medium (ONLY כללי)
     if (subTrackType === 'כללי') return 'medium';
+    
+    // Check low risk
     if (lowRisk.some(type => subTrackType.includes(type))) return 'low';
+    
+    // Check high risk
     if (highRisk.some(type => subTrackType.includes(type))) return 'high';
+    
+    // For נדל"ן and אחר without manual risk = undefined
+    if (subTrackType === 'נדל"ן' || subTrackType.includes('אחר')) return 'undefined';
+    
+    // Everything else = undefined
     return 'undefined';
 }
 
@@ -264,21 +283,17 @@ function setupEventListeners() {
         document.getElementById('genderSection').style.display = this.value === 'פנסיה' ? 'block' : 'none';
     });
     
-    // Show/hide sub-tracks based on amount
+    // Show/hide sub-tracks based on whether we're editing an investment
     document.getElementById('invAmount').addEventListener('input', function() {
-        const amount = sanitizeNumber(this.value);
-        console.log('📊 Amount changed:', amount); // DEBUG
         const section = document.getElementById('subTracksSection');
+        // ALWAYS show sub-tracks section when amount field has focus (even if empty)
+        section.style.display = 'block';
         
-        if (amount > 0) {
-            section.style.display = 'block';
-            console.log('✅ Showing sub-tracks section'); // DEBUG
-            
-            // Render current sub-tracks (will show empty list if currentSubTracks is [])
-            renderSubTracks();
-            
-            // Initialize listeners
-            initSubTrackListeners();
+        // Render current sub-tracks (will show empty list if currentSubTracks is [])
+        renderSubTracks();
+        
+        // Initialize listeners
+        initSubTrackListeners();
             console.log('✅ initSubTrackListeners called'); // DEBUG
             
             // Reset return rate when showing sub-tracks for first time
@@ -297,6 +312,7 @@ function initSubTrackListeners() {
     const typeSelect = document.getElementById('subTrackType');
     const returnInput = document.getElementById('subTrackReturn');
     const customNameField = document.getElementById('customNameField');
+    const manualRiskField = document.getElementById('manualRiskField');
     
     if (!typeSelect || !returnInput) return;
     
@@ -304,7 +320,7 @@ function initSubTrackListeners() {
     const newTypeSelect = typeSelect.cloneNode(true);
     typeSelect.parentNode.replaceChild(newTypeSelect, typeSelect);
     
-    // Auto-fill return rate from dropdown text + show/hide custom name field
+    // Auto-fill return rate from dropdown text + show/hide fields
     document.getElementById('subTrackType').addEventListener('change', function() {
         const selectedValue = this.value;
         const selectedText = this.options[this.selectedIndex].text;
@@ -312,16 +328,24 @@ function initSubTrackListeners() {
         // Show/hide custom name field for "אחר"
         if (selectedValue === 'אחר') {
             customNameField.style.display = 'block';
-            document.getElementById('subTrackReturn').value = '5'; // Default for "אחר"
+            document.getElementById('subTrackReturn').value = '5';
         } else {
             customNameField.style.display = 'none';
-            document.getElementById('subTrackCustomName').value = ''; // Clear custom name
+            document.getElementById('subTrackCustomName').value = '';
             
             // Auto-fill return rate from dropdown
             const match = selectedText.match(/\((\d+)%\)/);
             if (match) {
                 document.getElementById('subTrackReturn').value = match[1];
             }
+        }
+        
+        // Show/hide manual risk field for נדל"ן and אחר
+        if (selectedValue === 'נדל"ן' || selectedValue === 'אחר') {
+            manualRiskField.style.display = 'block';
+        } else {
+            manualRiskField.style.display = 'none';
+            document.getElementById('subTrackRiskLevel').value = ''; // Clear selection
         }
     });
     
@@ -381,6 +405,7 @@ function addSubTrack() {
     
     const percentInput = document.getElementById('subTrackPercent');
     const returnInput = document.getElementById('subTrackReturn');
+    const riskLevelSelect = document.getElementById('subTrackRiskLevel');
     
     const percent = sanitizeNumber(percentInput.value);
     const returnRate = sanitizeNumber(returnInput.value);
@@ -396,24 +421,44 @@ function addSubTrack() {
         return;
     }
     
+    // Validate manual risk level for נדל"ן and אחר
+    let manualRisk = null;
+    if (typeValue === 'נדל"ן' || typeValue === 'אחר') {
+        manualRisk = riskLevelSelect.value;
+        if (!manualRisk) {
+            document.getElementById('subTrackError').textContent = '❌ יש לבחור רמת סיכון עבור נדל"ן ו"אחר"';
+            return;
+        }
+    }
+    
     const currentTotal = currentSubTracks.reduce((sum, st) => sum + st.percent, 0);
     const newTotal = currentTotal + percent;
     
-    if (newTotal > 100.01) { // Small tolerance for floating point
+    if (newTotal > 100.01) {
         document.getElementById('subTrackError').textContent = `❌ סה"כ יעבור 100%! (כרגע: ${currentTotal.toFixed(1)}%, מנסה להוסיף: ${percent}%)`;
         return;
     }
     
-    currentSubTracks.push({ 
+    const subTrack = { 
         type, 
         percent: parseFloat(percent.toFixed(2)), 
         returnRate: parseFloat(returnRate.toFixed(2))
-    });
+    };
+    
+    // Add manual risk if applicable
+    if (manualRisk) {
+        subTrack.manualRisk = manualRisk;
+    }
+    
+    currentSubTracks.push(subTrack);
     
     // Clear inputs
     percentInput.value = '';
     returnInput.value = SUB_TRACK_DEFAULTS[type] || 5;
-    document.getElementById('subTrackCustomName').value = ''; // Clear custom name
+    document.getElementById('subTrackCustomName').value = '';
+    riskLevelSelect.value = '';
+    document.getElementById('customNameField').style.display = 'none';
+    document.getElementById('manualRiskField').style.display = 'none';
     document.getElementById('subTrackError').textContent = '';
     
     renderSubTracks();
@@ -1134,6 +1179,7 @@ function renderCharts() {
     const byType = {};
     const byHouse = {};
     const bySubTrack = {};
+    const subTrackObjects = []; // For risk classification
     let taxExempt = 0;
     let taxable = 0;
     let total = 0;
@@ -1151,10 +1197,20 @@ function renderCharts() {
             inv.subTracks.forEach(st => {
                 const subTrackValue = value * (st.percent / 100);
                 bySubTrack[st.type] = (bySubTrack[st.type] || 0) + subTrackValue;
+                
+                // Keep full object for risk classification
+                subTrackObjects.push({
+                    ...st,
+                    value: subTrackValue
+                });
             });
         } else {
             // If no sub-tracks, count as "לא מחולק"
             bySubTrack['לא מחולק לתתי-מסלולים'] = (bySubTrack['לא מחולק לתתי-מסלולים'] || 0) + value;
+            subTrackObjects.push({
+                type: 'לא מחולק לתתי-מסלולים',
+                value: value
+            });
         }
         
         if (inv.tax > 0) {
@@ -1171,7 +1227,7 @@ function renderCharts() {
     renderPieChart('chartByType', byType, 'סוג מסלול');
     renderPieChartWithUniqueColors('chartByHouse', byHouse, 'בית השקעות');
     renderPieChart('chartByTax', { 'פטור ממס': taxExempt, 'חייב במס': taxable }, 'מיסוי');
-    renderRiskPieChart(bySubTrack);
+    renderRiskPieChart(subTrackObjects); // Pass objects, not dictionary
 }
 
 function renderPieChart(canvasId, data, label) {
@@ -1294,7 +1350,7 @@ function renderPieChartWithUniqueColors(canvasId, data, label) {
     });
 }
 
-function renderRiskPieChart(bySubTrack) {
+function renderRiskPieChart(subTrackObjects) {
     const riskCategories = {
         'סיכון נמוך': 0,
         'סיכון בינוני': 0,
@@ -1302,16 +1358,17 @@ function renderRiskPieChart(bySubTrack) {
         'לא מוגדר': 0
     };
     
-    Object.entries(bySubTrack).forEach(([type, value]) => {
-        const risk = classifyRisk(type);
-        if (risk === 'low') riskCategories['סיכון נמוך'] += value;
-        else if (risk === 'medium') riskCategories['סיכון בינוני'] += value;
-        else if (risk === 'high') riskCategories['סיכון גבוה'] += value;
-        else riskCategories['לא מוגדר'] += value;
+    // Classify each subTrack object
+    subTrackObjects.forEach(st => {
+        const risk = classifyRisk(st);  // Pass full object
+        if (risk === 'low') riskCategories['סיכון נמוך'] += st.value;
+        else if (risk === 'medium') riskCategories['סיכון בינוני'] += st.value;
+        else if (risk === 'high') riskCategories['סיכון גבוה'] += st.value;
+        else riskCategories['לא מוגדר'] += st.value;
     });
     
     const ctx = document.getElementById('chartByRisk');
-    if (!ctx) return; // Chart not in DOM yet
+    if (!ctx) return;
     
     if (charts.chartByRisk) charts.chartByRisk.destroy();
     
@@ -1349,6 +1406,16 @@ function renderRiskPieChart(bySubTrack) {
                 },
                 tooltip: {
                     rtl: true,
+                    callbacks: {
+                        label: function(context) {
+                            return ' ' + formatCurrency(context.parsed);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
                     callbacks: {
                         label: function(context) {
                             return ' ' + formatCurrency(context.parsed);
