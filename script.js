@@ -294,16 +294,13 @@ function setupEventListeners() {
         
         // Initialize listeners
         initSubTrackListeners();
-            console.log('✅ initSubTrackListeners called'); // DEBUG
-            
-            // Reset return rate when showing sub-tracks for first time
-            if (currentSubTracks.length === 0) {
-                const returnInput = document.getElementById('invReturn');
-                returnInput.value = '';
-                returnInput.placeholder = 'יחושב אוטומטית מתתי-מסלולים';
-            }
-        } else {
-            section.style.display = 'none';
+        console.log('✅ initSubTrackListeners called'); // DEBUG
+        
+        // Reset return rate when showing sub-tracks for first time
+        if (currentSubTracks.length === 0) {
+            const returnInput = document.getElementById('invReturn');
+            returnInput.value = '';
+            returnInput.placeholder = 'יחושב אוטומטית מתתי-מסלולים';
         }
     });
 }

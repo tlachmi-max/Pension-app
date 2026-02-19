@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v15.0';  // ← v15.0 - Manual risk level!
+const CACHE_NAME = 'financial-planner-v15.1';  // ← v15.1 - SYNTAX FIX!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',
