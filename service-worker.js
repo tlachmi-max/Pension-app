@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v15.2';  // ← v15.2 - WORKING!
+const CACHE_NAME = 'financial-planner-v15.3';  // ← v15.3 - Today total + Snapshot fix!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

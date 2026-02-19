@@ -85,18 +85,16 @@ function generateUniqueColors(count) {
 
 function saveSnapshot() {
     const plan = getCurrentPlan();
-    const years = parseInt(document.getElementById('sumYears').value) || 30;
     
-    let total = 0;
+    // Calculate CURRENT total (today), not future projection
+    let totalToday = 0;
     plan.investments.forEach(inv => {
         if (!inv.include) return;
-        const value = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
-                                  inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
-        total += value;
+        totalToday += inv.amount || 0;
     });
     
-    localStorage.setItem('initial_reference', total.toString());
-    alert(`✅ נקודת ייחוס נשמרה: ₪${total.toLocaleString()}`);
+    localStorage.setItem('initial_reference', totalToday.toString());
+    alert(`✅ נקודת ייחוס נשמרה: ₪${totalToday.toLocaleString()}\n(סכום נוכחי - היום)`);
 }
 
 function getSnapshot() {
@@ -1044,6 +1042,7 @@ function renderSummary() {
     let totalPrincipal = 0;
     let totalTax = 0;
     let totalFees = 0;
+    let totalToday = 0; // NEW: Total today
     
     // Separate pension from other investments
     let pensionNominal = 0;
@@ -1052,6 +1051,9 @@ function renderSummary() {
     
     const breakdown = plan.investments.map(inv => {
         if (!inv.include) return null;
+        
+        // Calculate total today
+        totalToday += inv.amount || 0;
         
         const nominal = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
                                     inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
@@ -1081,6 +1083,8 @@ function renderSummary() {
     const totalReal = calculateRealValue(totalNominal, years);
     const pensionReal = calculateRealValue(pensionNominal, years);
     
+    // Update displays
+    document.getElementById('sumToday').textContent = formatCurrency(totalToday);
     document.getElementById('sumNominal').textContent = formatCurrency(totalNominal);
     document.getElementById('sumReal').textContent = formatCurrency(totalReal);
     document.getElementById('sumFees').textContent = formatCurrency(totalFees);
