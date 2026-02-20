@@ -486,6 +486,24 @@
 
             <!-- Panel 5: Charts -->
             <div id="charts" class="panel">
+                <!-- Year Selector -->
+                <div class="card" style="background: rgba(59, 130, 246, 0.1); border: 2px solid #3b82f6; margin-bottom: 20px;">
+                    <div class="flex justify-between items-center">
+                        <h3 style="margin: 0; color: #3b82f6;">📊 הצג גרפים לפי:</h3>
+                        <div class="flex gap-2 items-center">
+                            <select class="form-select" id="chartsTimeframe" onchange="renderCharts()" style="width: 200px;">
+                                <option value="0">היום (סכום נוכחי)</option>
+                                <option value="5">בעוד 5 שנים</option>
+                                <option value="10">בעוד 10 שנים</option>
+                                <option value="15">בעוד 15 שנים</option>
+                                <option value="20">בעוד 20 שנים</option>
+                                <option value="25">בעוד 25 שנים</option>
+                                <option value="30">בעוד 30 שנים</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="card">
                     <div class="card-title mb-3">📊 חלוקה לפי תתי-מסלולים</div>
                     <canvas id="chartBySubTracks"></canvas>

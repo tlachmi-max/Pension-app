@@ -1174,7 +1174,10 @@ function renderSummary() {
 
 function renderCharts() {
     const plan = getCurrentPlan();
-    const years = parseInt(document.getElementById('sumYears').value) || 30;
+    
+    // Get timeframe from selector (default to 0 = today)
+    const timeframeSelect = document.getElementById('chartsTimeframe');
+    const years = timeframeSelect ? parseInt(timeframeSelect.value) : 0;
     
     // Calculate totals
     const byType = {};
@@ -1187,8 +1190,15 @@ function renderCharts() {
     
     plan.investments.forEach(inv => {
         if (!inv.include) return;
-        const value = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
-                                  inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        
+        // If years = 0, use current amount only (no projection)
+        let value;
+        if (years === 0) {
+            value = inv.amount || 0;
+        } else {
+            value = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
+                              inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        }
         
         byType[inv.type] = (byType[inv.type] || 0) + value;
         byHouse[inv.house] = (byHouse[inv.house] || 0) + value;
