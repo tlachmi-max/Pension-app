@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v18.1';  // ← v18.1 - Bug fix: Multiple investments!
+const CACHE_NAME = 'financial-planner-v18.2';  // ← v18.2 - Tax calc fix + Impact display!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

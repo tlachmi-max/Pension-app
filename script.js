@@ -2235,7 +2235,7 @@ function renderWithdrawalStrategies(withdrawals) {
         html += `
             <div class="card" style="margin-top: 20px; border: 2px solid #f59e0b;">
                 <div class="card-header" style="background: rgba(245, 158, 11, 0.1);">
-                    <div class="card-title">
+                    <div class="card-title" style="color: #92400e;">
                         <span>🎯</span>
                         <span>${w.year} - ${w.goal} (${formatCurrency(w.amount)})</span>
                     </div>
@@ -2264,15 +2264,19 @@ function renderWithdrawalStrategies(withdrawals) {
                                     <div style="flex: 1;">
                                         <div style="font-weight: bold;">${step.source}</div>
                                         <div style="font-size: 0.9em; color: #666;">
-                                            ${formatCurrency(step.amount)} 
-                                            ${step.tax > 0 ? `| מס ${step.tax}%: ${formatCurrency(step.taxAmount)}` : '| פטור ממס ✅'}
+                                            סה"כ משיכה: ${formatCurrency(step.amount)}
+                                        </div>
+                                        <div style="font-size: 0.85em; color: #888; margin-top: 4px;">
+                                            קרן: ${formatCurrency(step.principal || 0)} | 
+                                            רווח: ${formatCurrency(step.profit || 0)} (${(step.profitRatio || 0).toFixed(1)}%)
+                                            ${step.tax > 0 ? ` → מס ${step.tax}%: ${formatCurrency(step.taxAmount)}` : ' → פטור ממס ✅'}
                                         </div>
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
                         
-                        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
+                        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                 <div>
                                     <strong>💰 סה"כ מס:</strong> 
@@ -2287,6 +2291,34 @@ function renderWithdrawalStrategies(withdrawals) {
                                     </span>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <h3 style="margin-top: 24px; margin-bottom: 12px; color: #3b82f6;">📊 השפעה על התחזית:</h3>
+                        <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                        <th style="padding: 8px; text-align: right;">שנה</th>
+                                        <th style="padding: 8px; text-align: right;">ללא משיכה</th>
+                                        <th style="padding: 8px; text-align: right;">עם משיכה</th>
+                                        <th style="padding: 8px; text-align: right;">הפרש</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                                        <td style="padding: 8px;">${w.year}</td>
+                                        <td style="padding: 8px; color: #10b981;">${formatCurrency(strategy.availableTotal)}</td>
+                                        <td style="padding: 8px; color: #3b82f6;">${formatCurrency(strategy.availableTotal - w.amount)}</td>
+                                        <td style="padding: 8px; color: #ef4444;">-${formatCurrency(w.amount)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px; font-weight: bold;">בגיל פרישה</td>
+                                        <td style="padding: 8px; color: #10b981; font-weight: bold;" id="futureWithout_${index}">מחשב...</td>
+                                        <td style="padding: 8px; color: #3b82f6; font-weight: bold;" id="futureWith_${index}">מחשב...</td>
+                                        <td style="padding: 8px; color: #888; font-weight: bold;" id="futureDiff_${index}">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     ` : `
                         <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px;">
@@ -2305,8 +2337,9 @@ function renderWithdrawalStrategies(withdrawals) {
 }
 
 function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
-    // Get available funds by source
+    // Get available funds by source WITH principal tracking
     const availableFunds = {};
+    const principalByType = {};
     
     plan.investments.forEach(inv => {
         if (!inv.include) return;
@@ -2322,10 +2355,14 @@ function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
             inv.subTracks
         );
         
+        const principal = calculatePrincipal(inv.amount, inv.monthly, yearsFromNow);
+        
         if (!availableFunds[inv.type]) {
             availableFunds[inv.type] = 0;
+            principalByType[inv.type] = 0;
         }
         availableFunds[inv.type] += futureValue;
+        principalByType[inv.type] += principal;
     });
     
     // Calculate total available
@@ -2351,11 +2388,23 @@ function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
         if (available <= 0) continue;
         
         const toWithdraw = Math.min(remaining, available);
-        const taxAmount = toWithdraw * (source.tax / 100);
+        
+        // Calculate profit ratio (Average method)
+        const totalValue = availableFunds[source.type];
+        const totalPrincipal = principalByType[source.type];
+        const totalProfit = totalValue - totalPrincipal;
+        const profitRatio = totalProfit / totalValue;
+        
+        // Apply profit ratio to withdrawal
+        const profitInWithdrawal = toWithdraw * profitRatio;
+        const taxAmount = profitInWithdrawal * (source.tax / 100);
         
         steps.push({
             source: source.name,
             amount: toWithdraw,
+            principal: toWithdraw * (1 - profitRatio),
+            profit: profitInWithdrawal,
+            profitRatio: profitRatio * 100,
             tax: source.tax,
             taxAmount: taxAmount
         });
