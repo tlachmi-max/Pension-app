@@ -2334,13 +2334,14 @@ function renderWithdrawalStrategies(withdrawals) {
                         <div style="margin-bottom: 20px;">
                             ${strategy.steps.map((step, i) => `
                                 <div style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: white; border-radius: 8px; border-left: 4px solid ${step.tax > 0 ? '#ef4444' : '#10b981'};">
-                                    <div style="width: 30px; font-weight: bold;">${i + 1}️⃣</div>
+                                    <div style="width: 30px; font-weight: bold; color: #1f2937;">${i + 1}️⃣</div>
                                     <div style="flex: 1;">
-                                        <div style="font-weight: bold;">${step.source}</div>
-                                        <div style="font-size: 0.9em; color: #666;">
+                                        <div style="font-weight: bold; color: #1f2937;">${step.investmentNames || step.source}</div>
+                                        <div style="font-size: 0.8em; color: #6b7280; margin-top: 2px;">${step.source}</div>
+                                        <div style="font-size: 0.9em; color: #374151; margin-top: 4px;">
                                             משיכה ברוטו: ${formatCurrency(step.amount)}
                                         </div>
-                                        <div style="font-size: 0.85em; color: #888; margin-top: 4px;">
+                                        <div style="font-size: 0.85em; color: #6b7280; margin-top: 4px;">
                                             קרן: ${formatCurrency(step.principal || 0)} | 
                                             רווח: ${formatCurrency(step.profit || 0)} (${(step.profitRatio || 0).toFixed(1)}%)
                                             ${step.tax > 0 ? ` → מס: ${formatCurrency(step.taxAmount)}` : ' → פטור ממס ✅'}
@@ -2417,9 +2418,10 @@ function renderWithdrawalStrategies(withdrawals) {
 }
 
 function calculateWithdrawalStrategy(desiredNetAmount, yearsFromNow, plan) {
-    // Get available funds by source WITH principal tracking
+    // Get available funds by source WITH principal tracking AND names
     const availableFunds = {};
     const principalByType = {};
+    const namesByType = {}; // Track investment names
     
     plan.investments.forEach(inv => {
         if (!inv.include) return;
@@ -2440,9 +2442,11 @@ function calculateWithdrawalStrategy(desiredNetAmount, yearsFromNow, plan) {
         if (!availableFunds[inv.type]) {
             availableFunds[inv.type] = 0;
             principalByType[inv.type] = 0;
+            namesByType[inv.type] = [];
         }
         availableFunds[inv.type] += futureValue;
         principalByType[inv.type] += principal;
+        namesByType[inv.type].push(inv.name);
     });
     
     // Calculate total available
@@ -2482,8 +2486,15 @@ function calculateWithdrawalStrategy(desiredNetAmount, yearsFromNow, plan) {
         const taxAmount = profitInWithdrawal * (source.tax / 100);
         const netAmount = toWithdraw - taxAmount;
         
+        // Get specific investment names for this type
+        const investmentNames = namesByType[source.type] || [];
+        const namesDisplay = investmentNames.length > 0 
+            ? investmentNames.join(', ') 
+            : source.name;
+        
         steps.push({
             source: source.name,
+            investmentNames: namesDisplay, // Specific investment names
             amount: toWithdraw,
             principal: toWithdraw * (1 - profitRatio),
             profit: profitInWithdrawal,

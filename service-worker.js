@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v19.3';  // ← v19.3 - Correct pension tax!
+const CACHE_NAME = 'financial-planner-v19.4';  // ← v19.4 - Show investment names + fix contrast!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',
