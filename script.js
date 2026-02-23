@@ -1086,27 +1086,38 @@ function renderSummary() {
     const plan = getCurrentPlan();
     const years = parseInt(document.getElementById('sumYears').value) || 30;
     
-    let totalNominal = 0;
-    let totalPrincipal = 0;
-    let totalTax = 0;
-    let totalFees = 0;
     let totalToday = 0; // Total today WITHOUT pension
     let pensionToday = 0; // Pension today
     
-    // Separate pension from other investments
-    let pensionNominal = 0;
-    let pensionPrincipal = 0;
-    let pensionTax = 0;
-    
-    const breakdown = plan.investments.map(inv => {
-        if (!inv.include) return null;
+    // Separate pension from other investments for today's calculation
+    plan.investments.forEach(inv => {
+        if (!inv.include) return;
         
-        // Calculate total today - SEPARATE pension
         if (inv.type === 'פנסיה') {
             pensionToday += inv.amount || 0;
         } else {
             totalToday += inv.amount || 0;
         }
+    });
+    
+    // Calculate projection WITH withdrawals
+    const projection = calculateProjectionWithWithdrawals(
+        plan.investments, 
+        years, 
+        plan.withdrawals
+    );
+    
+    const totalNominal = projection.finalNominal;
+    const totalPrincipal = projection.finalPrincipal;
+    
+    // Calculate pension separately (no withdrawals from pension)
+    let pensionNominal = 0;
+    let pensionPrincipal = 0;
+    let pensionTax = 0;
+    let totalFees = 0;
+    
+    const breakdown = plan.investments.map(inv => {
+        if (!inv.include) return null;
         
         const nominal = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
                                     inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
@@ -1125,21 +1136,25 @@ function renderSummary() {
         const fees = nominalNoFees - nominal;
         const real = calculateRealValue(nominal, years);
         
-        // Separate pension calculations
+        // Separate pension calculations (pension is not part of withdrawable projection)
         if (inv.type === 'פנסיה') {
             pensionNominal += nominal;
             pensionPrincipal += principal;
             pensionTax += tax;
-        } else {
-            totalNominal += nominal;
-            totalPrincipal += principal;
-            totalTax += tax;
         }
         
         totalFees += fees;
         
         return { inv, nominal, real, tax, principal, fees };
     }).filter(Boolean);
+    
+    // Add withdrawal info to display
+    const withdrawalInfo = projection.totalWithdrawn > 0 ? `
+        <div style="margin-top: 8px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; font-size: 0.85em;">
+            ⚠️ כולל ${plan.withdrawals?.filter(w => w.active !== false).length || 0} משיכות מתוכננות<br>
+            סה"כ נמשך: ${formatCurrency(projection.totalWithdrawn)} (מס: ${formatCurrency(projection.totalTaxPaid)})
+        </div>
+    ` : '';
     
     const totalReal = calculateRealValue(totalNominal, years);
     const pensionReal = calculateRealValue(pensionNominal, years);
@@ -1161,11 +1176,14 @@ function renderSummary() {
         todayElement.textContent = formatCurrency(totalToday);
     }
     
+    // Calculate tax on final portfolio
+    const totalTax = calculateTax(totalPrincipal, totalNominal, 25); // Approximate average
+    
     document.getElementById('sumNominal').textContent = formatCurrency(totalNominal);
     document.getElementById('sumReal').textContent = formatCurrency(totalReal);
     document.getElementById('sumFees').textContent = formatCurrency(totalFees);
     document.getElementById('sumTax').textContent = formatCurrency(totalTax);
-    document.getElementById('sumYearsLabel').textContent = `בעוד ${years} שנה${years > 1 ? 'ים' : ''}`;
+    document.getElementById('sumYearsLabel').textContent = `בעוד ${years} שנה${years > 1 ? 'ים' : ''} ${withdrawalInfo}`;
     
     const container = document.getElementById('summaryBreakdown');
     
@@ -2477,3 +2495,195 @@ function toggleWithdrawal(index) {
     saveData();
     renderWithdrawals();
 }
+
+// ==========================================
+// CALCULATE PROJECTIONS WITH WITHDRAWALS
+// ==========================================
+
+function calculateProjectionWithWithdrawals(investments, targetYears, withdrawals) {
+    const currentYear = new Date().getFullYear();
+    
+    // Get active withdrawals sorted by year
+    const activeWithdrawals = (withdrawals || [])
+        .filter(w => w.active !== false && w.year >= currentYear && w.year <= currentYear + targetYears)
+        .sort((a, b) => a.year - b.year);
+    
+    // Initialize portfolio state
+    let portfolioByType = {};
+    let principalByType = {};
+    
+    investments.forEach(inv => {
+        if (!inv.include) return;
+        if (inv.type === 'פנסיה') return; // Don't include pension in withdrawable portfolio
+        
+        if (!portfolioByType[inv.type]) {
+            portfolioByType[inv.type] = [];
+            principalByType[inv.type] = 0;
+        }
+        
+        portfolioByType[inv.type].push({
+            amount: inv.amount,
+            monthly: inv.monthly,
+            returnRate: inv.returnRate,
+            feeDeposit: inv.feeDeposit || 0,
+            feeAnnual: inv.feeAnnual || 0,
+            subTracks: inv.subTracks
+        });
+        
+        principalByType[inv.type] += inv.amount;
+    });
+    
+    // Simulate year by year
+    let totalWithdrawn = 0;
+    let totalTaxPaid = 0;
+    
+    for (let year = 0; year <= targetYears; year++) {
+        const currentYearNum = currentYear + year;
+        
+        // Check if there's a withdrawal this year
+        const withdrawal = activeWithdrawals.find(w => w.year === currentYearNum);
+        
+        if (withdrawal) {
+            // Calculate withdrawal strategy
+            const strategy = calculateWithdrawalStrategyFromState(
+                withdrawal.amount, 
+                portfolioByType, 
+                principalByType
+            );
+            
+            if (strategy.feasible) {
+                // Execute withdrawal
+                strategy.steps.forEach(step => {
+                    // Find the type and reduce it
+                    const typeKey = WITHDRAWAL_HIERARCHY.find(h => h.name === step.source)?.type;
+                    if (typeKey && portfolioByType[typeKey]) {
+                        // Reduce proportionally from all investments of this type
+                        const totalInType = portfolioByType[typeKey].reduce((sum, inv) => {
+                            return sum + calculateCurrentValue(inv, year);
+                        }, 0);
+                        
+                        portfolioByType[typeKey].forEach(inv => {
+                            const currentValue = calculateCurrentValue(inv, year);
+                            const proportion = currentValue / totalInType;
+                            const amountToReduce = step.amount * proportion;
+                            
+                            // Reduce by converting to a negative "withdrawal"
+                            inv.amount = Math.max(0, currentValue - amountToReduce);
+                            inv.monthly = 0; // Stop monthly deposits after withdrawal
+                        });
+                        
+                        principalByType[typeKey] = Math.max(0, principalByType[typeKey] - step.principal);
+                    }
+                });
+                
+                totalWithdrawn += strategy.totalGross;
+                totalTaxPaid += strategy.totalTax;
+            }
+        }
+        
+        // Grow portfolio for one year (if not at target)
+        if (year < targetYears) {
+            Object.keys(portfolioByType).forEach(type => {
+                portfolioByType[type].forEach(inv => {
+                    const currentValue = calculateCurrentValue(inv, 0);
+                    inv.amount = calculateFV(currentValue, inv.monthly, inv.returnRate, 1,
+                                            inv.feeDeposit, inv.feeAnnual, inv.subTracks);
+                    principalByType[type] += inv.monthly * 12;
+                });
+            });
+        }
+    }
+    
+    // Calculate final values
+    let finalNominal = 0;
+    let finalPrincipal = 0;
+    
+    Object.keys(portfolioByType).forEach(type => {
+        portfolioByType[type].forEach(inv => {
+            const value = calculateCurrentValue(inv, 0);
+            finalNominal += value;
+        });
+        finalPrincipal += principalByType[type];
+    });
+    
+    return {
+        finalNominal,
+        finalPrincipal,
+        totalWithdrawn,
+        totalTaxPaid,
+        netWithdrawn: totalWithdrawn - totalTaxPaid
+    };
+}
+
+function calculateCurrentValue(inv, yearsElapsed) {
+    return calculateFV(inv.amount, inv.monthly, inv.returnRate, yearsElapsed,
+                      inv.feeDeposit, inv.feeAnnual, inv.subTracks);
+}
+
+function calculateWithdrawalStrategyFromState(desiredNet, portfolioByType, principalByType) {
+    // Similar to calculateWithdrawalStrategy but works with portfolio state
+    const availableFunds = {};
+    
+    Object.keys(portfolioByType).forEach(type => {
+        availableFunds[type] = portfolioByType[type].reduce((sum, inv) => {
+            return sum + calculateCurrentValue(inv, 0);
+        }, 0);
+    });
+    
+    const availableTotal = Object.values(availableFunds).reduce((sum, v) => sum + v, 0);
+    
+    // Build withdrawal strategy
+    const steps = [];
+    let remainingNet = desiredNet;
+    let totalGross = 0;
+    let totalTax = 0;
+    
+    const sorted = [...WITHDRAWAL_HIERARCHY].sort((a, b) => a.priority - b.priority);
+    
+    for (const source of sorted) {
+        if (remainingNet <= 0.01) break;
+        if (source.blockPension) continue;
+        
+        const available = availableFunds[source.type] || 0;
+        if (available <= 0) continue;
+        
+        const totalValue = availableFunds[source.type];
+        const totalPrincipal = principalByType[source.type] || 0;
+        const totalProfit = Math.max(0, totalValue - totalPrincipal);
+        const profitRatio = totalValue > 0 ? totalProfit / totalValue : 0;
+        
+        const effectiveTaxRate = profitRatio * (source.tax / 100);
+        const grossNeeded = remainingNet / (1 - effectiveTaxRate);
+        const toWithdraw = Math.min(grossNeeded, available);
+        
+        const profitInWithdrawal = toWithdraw * profitRatio;
+        const taxAmount = profitInWithdrawal * (source.tax / 100);
+        const netAmount = toWithdraw - taxAmount;
+        
+        steps.push({
+            source: source.name,
+            amount: toWithdraw,
+            principal: toWithdraw * (1 - profitRatio),
+            profit: profitInWithdrawal,
+            tax: source.tax,
+            taxAmount: taxAmount,
+            netAmount: netAmount
+        });
+        
+        totalGross += toWithdraw;
+        totalTax += taxAmount;
+        remainingNet -= netAmount;
+    }
+    
+    const achievedNet = totalGross - totalTax;
+    const feasible = achievedNet >= desiredNet * 0.999;
+    
+    return {
+        feasible,
+        steps,
+        totalGross,
+        totalTax,
+        totalNet: achievedNet
+    };
+}
+
