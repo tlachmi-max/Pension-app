@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v15.4';  // ← v15.4 - Charts by year selector!
+const CACHE_NAME = 'financial-planner-v16';  // ← v16 - Auto-import ready!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

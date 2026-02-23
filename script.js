@@ -1815,3 +1815,174 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTasks();
     }
 });
+
+// ==========================================
+// AUTO IMPORT FROM BANKS/INSURANCE
+// ==========================================
+
+// Check if extension is installed
+function checkExtensionInstalled() {
+    return new Promise((resolve) => {
+        window.postMessage({ type: 'PING_EXTENSION' }, '*');
+        
+        const timeout = setTimeout(() => {
+            resolve(false);
+        }, 1000);
+        
+        window.addEventListener('message', function handler(event) {
+            if (event.data.type === 'EXTENSION_PONG') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                resolve(true);
+            }
+        });
+    });
+}
+
+// Initialize auto import
+async function initAutoImport() {
+    const statusEl = document.getElementById('extensionStatus');
+    
+    // Check if extension is installed
+    const isInstalled = await checkExtensionInstalled();
+    
+    if (!isInstalled) {
+        statusEl.innerHTML = `
+            <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; margin-top: 12px;">
+                <p style="margin: 0 0 8px 0; font-weight: bold;">❌ התוסף לא מותקן</p>
+                <p style="margin: 0 0 12px 0; font-size: 0.9em;">
+                    כדי להשתמש בייבוא אוטומטי, התקן את תוסף Chrome
+                </p>
+                <a href="#install-extension" style="color: white; text-decoration: underline; font-weight: bold;">
+                    📥 הוראות התקנה
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    // Extension is installed - trigger import
+    statusEl.innerHTML = '<p style="margin: 8px 0 0 0;">✅ התוסף מותקן! פותח חלון ייבוא...</p>';
+    
+    // Send message to extension to start import
+    window.postMessage({ 
+        type: 'START_AUTO_IMPORT',
+        source: 'financial-planner'
+    }, '*');
+}
+
+// Listen for imported data from extension
+window.addEventListener('message', function(event) {
+    // Ignore messages from other sources
+    if (event.source !== window) return;
+    
+    if (event.data.type === 'IMPORT_COMPLETE') {
+        handleImportedData(event.data.accounts);
+    }
+});
+
+// Handle imported data
+function handleImportedData(accounts) {
+    if (!accounts || accounts.length === 0) {
+        alert('לא נמצאו חשבונות לייבוא');
+        return;
+    }
+    
+    const plan = getCurrentPlan();
+    let importedCount = 0;
+    
+    accounts.forEach(account => {
+        // Map account type to our system
+        const invType = mapAccountType(account.type);
+        
+        // Auto-detect sub-tracks from account name
+        const subTracks = detectSubTracks(account.name, account.balance);
+        
+        // Calculate weighted return rate
+        const returnRate = subTracks.length > 0 
+            ? calculateWeightedReturnFromSubTracks(subTracks)
+            : 6; // default
+        
+        const investment = {
+            name: account.name,
+            house: account.provider || 'לא מוגדר',
+            type: invType,
+            tax: TAX_RATES[invType] || 0,
+            amount: account.balance || 0,
+            monthly: 0, // User can update manually
+            returnRate: returnRate,
+            feeDeposit: 0,
+            feeAnnual: account.managementFee || 0,
+            forDream: false,
+            include: true,
+            gender: 'male', // User can update manually
+            subTracks: subTracks
+        };
+        
+        plan.investments.push(investment);
+        importedCount++;
+    });
+    
+    saveData();
+    renderInvestments();
+    
+    alert(`✅ יובאו בהצלחה ${importedCount} מסלולים!\n\nבדוק ועדכן את הפרטים במידת הצורך.`);
+    
+    // Update status
+    document.getElementById('extensionStatus').innerHTML = 
+        `<p style="margin: 8px 0 0 0;">✅ יובאו ${importedCount} מסלולים בהצלחה!</p>`;
+}
+
+// Map account type from scraper to our system
+function mapAccountType(scraperType) {
+    const mapping = {
+        'pension': 'פנסיה',
+        'provident': 'קרן השתלמות',
+        'investment': 'גמל להשקעה',
+        'savings': 'פוליסת חסכון'
+    };
+    return mapping[scraperType] || 'אחר';
+}
+
+// Detect sub-tracks from account name
+function detectSubTracks(accountName, totalBalance) {
+    const name = accountName.toLowerCase();
+    const detectedTracks = [];
+    
+    // Common investment tracks in Israel
+    const trackPatterns = [
+        { pattern: 's&p 500', type: 'S&P 500', defaultPercent: 30 },
+        { pattern: 'מניות חו"ל', type: 'מדדי מניות חו״ל', defaultPercent: 30 },
+        { pattern: 'מניות בארץ', type: 'מדדי מניות בארץ', defaultPercent: 20 },
+        { pattern: 'אג"ח', type: 'אג״ח', defaultPercent: 30 },
+        { pattern: 'כספית', type: 'קרן כספית', defaultPercent: 10 },
+        { pattern: 'נדל"ן', type: 'נדל״ן', defaultPercent: 10 }
+    ];
+    
+    trackPatterns.forEach(track => {
+        if (name.includes(track.pattern)) {
+            detectedTracks.push({
+                type: track.type,
+                percent: track.defaultPercent,
+                returnRate: SUB_TRACK_DEFAULTS[track.type] || 5
+            });
+        }
+    });
+    
+    // If nothing detected, return empty (user will set manually)
+    return detectedTracks;
+}
+
+// Calculate weighted return from sub-tracks
+function calculateWeightedReturnFromSubTracks(subTracks) {
+    if (!subTracks || subTracks.length === 0) return 6;
+    
+    const totalPercent = subTracks.reduce((sum, st) => sum + st.percent, 0);
+    if (totalPercent === 0) return 6;
+    
+    const weightedReturn = subTracks.reduce((sum, st) => {
+        return sum + (st.returnRate * st.percent / 100);
+    }, 0);
+    
+    return parseFloat(weightedReturn.toFixed(2));
+}
