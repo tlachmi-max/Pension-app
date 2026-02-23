@@ -235,6 +235,40 @@ function calculateTax(principal, futureValue, taxRate) {
     return profit > 0 ? (profit * taxRate / 100) : 0;
 }
 
+// Calculate pension tax based on age and gender
+function calculatePensionTax(principal, futureValue, gender, currentAge, years) {
+    const profit = futureValue - principal;
+    if (profit <= 0) return 0;
+    
+    // Determine retirement age
+    const retirementAge = gender === 'female' ? 62 : 67;
+    const ageAtWithdrawal = currentAge + years;
+    
+    // Before retirement age - full tax on profit (25%)
+    if (ageAtWithdrawal < retirementAge) {
+        return profit * 0.25;
+    }
+    
+    // After retirement age - monthly pension taxation
+    // Assume withdrawal over 20 years (typical pension payout period)
+    const monthlyPension = futureValue * (gender === 'female' ? 0.006 : 0.005);
+    const annualPension = monthlyPension * 12;
+    
+    // First ₪60,000/year (₪5,000/month) is tax-free
+    const TAX_FREE_ANNUAL = 60000;
+    
+    if (annualPension <= TAX_FREE_ANNUAL) {
+        return 0; // Fully tax-free
+    }
+    
+    // Tax on amount above ₪60,000 (typical 15% bracket for retirees)
+    const taxableAmount = annualPension - TAX_FREE_ANNUAL;
+    const annualTax = taxableAmount * 0.15;
+    
+    // Total tax over 20 years
+    return annualTax * 20;
+}
+
 function calculatePrincipal(amount, monthly, years) {
     return amount + (monthly * 12 * years);
 }
@@ -377,6 +411,7 @@ function switchPanel(panelName) {
     if (panelName === 'projections') renderProjections();
     if (panelName === 'summary') renderSummary();
     if (panelName === 'charts') renderCharts();
+    if (panelName === 'roadmap') renderWithdrawals();
 }
 
 // ==========================================
@@ -573,6 +608,7 @@ function saveInvestment(event) {
         forDream: document.getElementById('invForDream').checked,
         include: document.getElementById('invInclude').checked,
         gender: document.getElementById('invGender').value,
+        age: parseInt(document.getElementById('invAge').value) || null,
         subTracks: [...currentSubTracks]
     };
     
@@ -627,6 +663,7 @@ function editInvestment(index) {
     document.getElementById('invForDream').checked = inv.forDream || false;
     document.getElementById('invInclude').checked = inv.include !== false;
     document.getElementById('invGender').value = inv.gender || 'male';
+    document.getElementById('invAge').value = inv.age || '';
     
     currentSubTracks = inv.subTracks ? JSON.parse(JSON.stringify(inv.subTracks)) : [];
     
@@ -1042,7 +1079,8 @@ function renderSummary() {
     let totalPrincipal = 0;
     let totalTax = 0;
     let totalFees = 0;
-    let totalToday = 0; // NEW: Total today
+    let totalToday = 0; // Total today WITHOUT pension
+    let pensionToday = 0; // Pension today
     
     // Separate pension from other investments
     let pensionNominal = 0;
@@ -1052,15 +1090,27 @@ function renderSummary() {
     const breakdown = plan.investments.map(inv => {
         if (!inv.include) return null;
         
-        // Calculate total today
-        totalToday += inv.amount || 0;
+        // Calculate total today - SEPARATE pension
+        if (inv.type === 'פנסיה') {
+            pensionToday += inv.amount || 0;
+        } else {
+            totalToday += inv.amount || 0;
+        }
         
         const nominal = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
                                     inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
         const nominalNoFees = calculateFV(inv.amount, inv.monthly, inv.returnRate, years, 0, 0, 
                                           inv.subTracks ? inv.subTracks.map(st => ({...st, returnRate: st.returnRate})) : null);
         const principal = calculatePrincipal(inv.amount, inv.monthly, years);
-        const tax = calculateTax(principal, nominal, inv.tax);
+        
+        // Calculate tax - use pension-specific calculation if it's a pension
+        let tax;
+        if (inv.type === 'פנסיה' && inv.age && inv.gender) {
+            tax = calculatePensionTax(principal, nominal, inv.gender, inv.age, years);
+        } else {
+            tax = calculateTax(principal, nominal, inv.tax);
+        }
+        
         const fees = nominalNoFees - nominal;
         const real = calculateRealValue(nominal, years);
         
@@ -1084,7 +1134,22 @@ function renderSummary() {
     const pensionReal = calculateRealValue(pensionNominal, years);
     
     // Update displays
-    document.getElementById('sumToday').textContent = formatCurrency(totalToday);
+    const grandTotalToday = totalToday + pensionToday;
+    const todayElement = document.getElementById('sumToday');
+    
+    // Update the "Today" card
+    if (pensionToday > 0) {
+        todayElement.innerHTML = `
+            <div style="font-size: 2.5em; color: #3b82f6; margin-bottom: 8px;">${formatCurrency(grandTotalToday)}</div>
+            <div style="font-size: 0.85em; color: #666; font-weight: normal;">
+                💼 הון עצמי: <strong>${formatCurrency(totalToday)}</strong><br>
+                💰 פנסיה: <strong>${formatCurrency(pensionToday)}</strong>
+            </div>
+        `;
+    } else {
+        todayElement.textContent = formatCurrency(totalToday);
+    }
+    
     document.getElementById('sumNominal').textContent = formatCurrency(totalNominal);
     document.getElementById('sumReal').textContent = formatCurrency(totalReal);
     document.getElementById('sumFees').textContent = formatCurrency(totalFees);
@@ -1096,6 +1161,19 @@ function renderSummary() {
     // Add pension summary if exists
     let pensionSummaryHTML = '';
     if (pensionNominal > 0) {
+        // Get first pension investment for age/gender info
+        const firstPension = plan.investments.find(inv => inv.type === 'פנסיה' && inv.include);
+        const retirementAge = firstPension?.gender === 'female' ? 62 : 67;
+        const currentAge = firstPension?.age || 0;
+        const ageAtWithdrawal = currentAge + years;
+        
+        let taxExplanation = '';
+        if (ageAtWithdrawal < retirementAge) {
+            taxExplanation = `<span style="color: #f85149;">⚠️ משיכה לפני גיל פרישה (${retirementAge}) - מס מלא על הרווח (25%)</span>`;
+        } else {
+            taxExplanation = `<span style="color: #3fb950;">✅ משיכה אחרי גיל פרישה (${retirementAge}) - פטור ממס על ₪5,000 הראשונים בחודש</span>`;
+        }
+        
         pensionSummaryHTML = `
             <div class="alert alert-info" style="background: rgba(88, 166, 255, 0.15); border-color: #58a6ff; margin-bottom: 20px;">
                 <span class="alert-icon">💰</span>
@@ -1105,8 +1183,12 @@ function renderSummary() {
                         <div><strong>ערך נומינלי:</strong> <span style="color: #3fb950;">${formatCurrency(pensionNominal)}</span></div>
                         <div><strong>ערך ריאלי:</strong> <span style="color: #58a6ff;">${formatCurrency(pensionReal)}</span></div>
                         <div><strong>קרן:</strong> ${formatCurrency(pensionPrincipal)}</div>
-                        <div><strong>מס:</strong> <span style="color: #f85149;">${formatCurrency(pensionTax)}</span></div>
+                        <div><strong>מס משוער:</strong> <span style="color: #f85149;">${formatCurrency(pensionTax)}</span></div>
                     </div>
+                    <div style="margin-top: 12px; padding: 8px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; font-size: 0.9em;">
+                        ${taxExplanation}
+                    </div>
+                    ${currentAge > 0 ? `<div style="margin-top: 8px; font-size: 0.85em; color: #8b949e;">גיל נוכחי: ${currentAge} | גיל במשיכה: ${ageAtWithdrawal} | גיל פרישה: ${retirementAge}</div>` : ''}
                 </div>
             </div>
         `;
@@ -1986,3 +2068,302 @@ function calculateWeightedReturnFromSubTracks(subTracks) {
     
     return parseFloat(weightedReturn.toFixed(2));
 }
+
+// ==========================================
+// ROADMAP - PLANNED WITHDRAWALS
+// ==========================================
+
+// Withdrawal hierarchy (High tax first, then low, then tax-free)
+const WITHDRAWAL_HIERARCHY = [
+    { type: 'תיק עצמאי', tax: 25, priority: 1, name: 'תיק עצמאי', blockPension: false },
+    { type: 'גמל להשקעה', tax: 25, priority: 2, name: 'גמל להשקעה', blockPension: false },
+    { type: 'פוליסת חסכון', tax: 25, priority: 3, name: 'פוליסת חסכון', blockPension: false },
+    { type: 'קרן השתלמות', tax: 15, priority: 4, name: 'קרן השתלמות (<6 שנים)', checkYears: true, blockPension: false },
+    { type: 'פקדון', tax: 15, priority: 5, name: 'פקדון', blockPension: false },
+    { type: 'קרן השתלמות', tax: 0, priority: 6, name: 'קרן השתלמות (6+ שנים)', requireYears: 6, blockPension: false },
+    { type: 'קרן כספית', tax: 0, priority: 7, name: 'קרן כספית', blockPension: false },
+    { type: 'עו"ש', tax: 0, priority: 8, name: 'עו״ש', blockPension: false },
+    { type: 'פנסיה', tax: 999, priority: 999, name: 'פנסיה', blockPension: true } // Blocked!
+];
+
+function saveWithdrawal(event) {
+    event.preventDefault();
+    const plan = getCurrentPlan();
+    
+    const year = parseInt(document.getElementById('wYear').value);
+    const amount = parseFloat(document.getElementById('wAmount').value);
+    const goal = document.getElementById('wGoal').value.trim();
+    
+    if (!plan.withdrawals) {
+        plan.withdrawals = [];
+    }
+    
+    const withdrawal = { year, amount, goal };
+    
+    if (appData.editingWithdrawalIndex >= 0) {
+        plan.withdrawals[appData.editingWithdrawalIndex] = withdrawal;
+        appData.editingWithdrawalIndex = -1;
+        cancelEditWithdrawal();
+    } else {
+        plan.withdrawals.push(withdrawal);
+    }
+    
+    clearWithdrawalForm();
+    saveData();
+    renderWithdrawals();
+}
+
+function clearWithdrawalForm() {
+    document.getElementById('withdrawalForm').reset();
+}
+
+function cancelEditWithdrawal() {
+    clearWithdrawalForm();
+    appData.editingWithdrawalIndex = -1;
+    document.getElementById('btnSaveWithdrawalText').textContent = '➕ הוסף משיכה';
+    document.getElementById('btnCancelWithdrawalEdit').style.display = 'none';
+}
+
+function editWithdrawal(index) {
+    const plan = getCurrentPlan();
+    const w = plan.withdrawals[index];
+    
+    appData.editingWithdrawalIndex = index;
+    
+    document.getElementById('wYear').value = w.year;
+    document.getElementById('wAmount').value = w.amount;
+    document.getElementById('wGoal').value = w.goal;
+    
+    document.getElementById('btnSaveWithdrawalText').textContent = 'עדכן משיכה';
+    document.getElementById('btnCancelWithdrawalEdit').style.display = 'block';
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteWithdrawal(index) {
+    if (!confirm('האם למחוק משיכה זו?')) return;
+    
+    const plan = getCurrentPlan();
+    plan.withdrawals.splice(index, 1);
+    saveData();
+    renderWithdrawals();
+}
+
+function renderWithdrawals() {
+    const plan = getCurrentPlan();
+    if (!plan.withdrawals) plan.withdrawals = [];
+    
+    // Sort by year
+    const sorted = [...plan.withdrawals].sort((a, b) => a.year - b.year);
+    
+    // Render timeline
+    renderTimeline(sorted);
+    
+    // Render strategies
+    renderWithdrawalStrategies(sorted);
+}
+
+function renderTimeline(withdrawals) {
+    const container = document.getElementById('withdrawalTimeline');
+    
+    if (withdrawals.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-text">אין משיכות מתוכננות</div></div>';
+        return;
+    }
+    
+    const currentYear = new Date().getFullYear();
+    const minYear = Math.min(currentYear, ...withdrawals.map(w => w.year));
+    const maxYear = Math.max(currentYear + 5, ...withdrawals.map(w => w.year));
+    
+    let html = '<div style="padding: 20px; background: #f8f9fa; border-radius: 8px;">';
+    
+    for (let year = minYear; year <= maxYear; year++) {
+        const yearWithdrawals = withdrawals.filter(w => w.year === year);
+        const isCurrent = year === currentYear;
+        
+        html += `
+            <div style="display: flex; align-items: center; margin-bottom: 12px; ${isCurrent ? 'font-weight: bold; color: #3b82f6;' : ''}">
+                <div style="width: 60px;">${year}</div>
+                <div style="flex: 1; height: 2px; background: ${isCurrent ? '#3b82f6' : '#ddd'}; position: relative;">
+        `;
+        
+        yearWithdrawals.forEach(w => {
+            html += `
+                <div style="position: absolute; left: 20%; top: -12px; background: white; padding: 4px 12px; border: 2px solid #f59e0b; border-radius: 16px; font-size: 0.9em; white-space: nowrap;">
+                    💰 ${formatCurrency(w.amount)} - ${w.goal}
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderWithdrawalStrategies(withdrawals) {
+    const container = document.getElementById('withdrawalStrategies');
+    
+    if (withdrawals.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    const plan = getCurrentPlan();
+    const currentYear = new Date().getFullYear();
+    
+    let html = '';
+    
+    withdrawals.forEach((w, index) => {
+        const yearsFromNow = w.year - currentYear;
+        const strategy = calculateWithdrawalStrategy(w.amount, yearsFromNow, plan);
+        
+        html += `
+            <div class="card" style="margin-top: 20px; border: 2px solid #f59e0b;">
+                <div class="card-header" style="background: rgba(245, 158, 11, 0.1);">
+                    <div class="card-title">
+                        <span>🎯</span>
+                        <span>${w.year} - ${w.goal} (${formatCurrency(w.amount)})</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-secondary" onclick="editWithdrawal(${index})">
+                            ✏️ ערוך
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteWithdrawal(${index})">
+                            🗑️ מחק
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <h3 style="margin-bottom: 16px; color: #f59e0b;">📋 אסטרטגיית משיכה מומלצת:</h3>
+                    
+                    ${strategy.feasible ? `
+                        <div style="background: rgba(16, 185, 129, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                            <strong style="color: #10b981;">✅ ניתן למשוך!</strong>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            ${strategy.steps.map((step, i) => `
+                                <div style="display: flex; align-items: center; padding: 12px; margin-bottom: 8px; background: white; border-radius: 8px; border-left: 4px solid ${step.tax > 0 ? '#ef4444' : '#10b981'};">
+                                    <div style="width: 30px; font-weight: bold;">${i + 1}️⃣</div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: bold;">${step.source}</div>
+                                        <div style="font-size: 0.9em; color: #666;">
+                                            ${formatCurrency(step.amount)} 
+                                            ${step.tax > 0 ? `| מס ${step.tax}%: ${formatCurrency(step.taxAmount)}` : '| פטור ממס ✅'}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div>
+                                    <strong>💰 סה"כ מס:</strong> 
+                                    <span style="color: ${strategy.totalTax > 0 ? '#ef4444' : '#10b981'}; font-size: 1.2em;">
+                                        ${formatCurrency(strategy.totalTax)}
+                                    </span>
+                                </div>
+                                <div>
+                                    <strong>💎 נטו לאחר מס:</strong> 
+                                    <span style="color: #10b981; font-size: 1.2em;">
+                                        ${formatCurrency(w.amount - strategy.totalTax)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    ` : `
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px;">
+                            <strong style="color: #ef4444;">❌ אין מספיק כסף!</strong>
+                            <p style="margin-top: 8px;">
+                                ב-${w.year} יהיה לך רק ${formatCurrency(strategy.availableTotal)} במקום ${formatCurrency(w.amount)}
+                            </p>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
+    // Get available funds by source
+    const availableFunds = {};
+    
+    plan.investments.forEach(inv => {
+        if (!inv.include) return;
+        if (inv.type === 'פנסיה') return; // Block pension
+        
+        const futureValue = calculateFV(
+            inv.amount, 
+            inv.monthly, 
+            inv.returnRate, 
+            yearsFromNow,
+            inv.feeDeposit || 0,
+            inv.feeAnnual || 0,
+            inv.subTracks
+        );
+        
+        if (!availableFunds[inv.type]) {
+            availableFunds[inv.type] = 0;
+        }
+        availableFunds[inv.type] += futureValue;
+    });
+    
+    // Calculate total available
+    const availableTotal = Object.values(availableFunds).reduce((sum, v) => sum + v, 0);
+    
+    if (availableTotal < amount) {
+        return { feasible: false, availableTotal };
+    }
+    
+    // Build withdrawal strategy
+    const steps = [];
+    let remaining = amount;
+    let totalTax = 0;
+    
+    // Sort hierarchy by priority (high tax first)
+    const sorted = [...WITHDRAWAL_HIERARCHY].sort((a, b) => a.priority - b.priority);
+    
+    for (const source of sorted) {
+        if (remaining <= 0) break;
+        if (source.blockPension) continue; // Skip pension
+        
+        const available = availableFunds[source.type] || 0;
+        if (available <= 0) continue;
+        
+        const toWithdraw = Math.min(remaining, available);
+        const taxAmount = toWithdraw * (source.tax / 100);
+        
+        steps.push({
+            source: source.name,
+            amount: toWithdraw,
+            tax: source.tax,
+            taxAmount: taxAmount
+        });
+        
+        totalTax += taxAmount;
+        remaining -= toWithdraw;
+    }
+    
+    return {
+        feasible: true,
+        steps,
+        totalTax,
+        availableTotal
+    };
+}
+
+// Initialize editing index
+if (!appData.editingWithdrawalIndex) {
+    appData.editingWithdrawalIndex = -1;
+}
+

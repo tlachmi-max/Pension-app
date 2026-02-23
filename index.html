@@ -90,6 +90,10 @@
                 <span>🎯</span>
                 <span>חלומות</span>
             </button>
+            <button class="nav-item" data-panel="roadmap" onclick="switchPanel('roadmap')">
+                <span>📍</span>
+                <span>מפת דרכים</span>
+            </button>
             <button class="nav-item" data-panel="projections" onclick="switchPanel('projections')">
                 <span>📈</span>
                 <span>תחזיות</span>
@@ -173,12 +177,25 @@
                         
                         <!-- Gender Selection for Pension -->
                         <div id="genderSection" style="display: none;">
-                            <div class="form-group">
-                                <label class="form-label">מגדר (לצורך חישוב פנסיה)</label>
-                                <select class="form-select" id="invGender">
-                                    <option value="male">זכר (מקדם 0.005)</option>
-                                    <option value="female">נקבה (מקדם 0.006)</option>
-                                </select>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <span class="required">*</span>
+                                        מגדר (לחישוב פנסיה)
+                                    </label>
+                                    <select class="form-select" id="invGender" required>
+                                        <option value="male">זכר (פרישה 67)</option>
+                                        <option value="female">נקבה (פרישה 62)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <span class="required">*</span>
+                                        גיל נוכחי
+                                    </label>
+                                    <input type="number" class="form-input" id="invAge" min="18" max="120" placeholder="35" required>
+                                </div>
                             </div>
                         </div>
                         
@@ -383,6 +400,75 @@
                 </div>
             </div>
 
+            <!-- Panel: Roadmap -->
+            <div id="roadmap" class="panel">
+                <div class="alert alert-info">
+                    <span class="alert-icon">📍</span>
+                    <div>
+                        <strong>מפת הדרכים הפיננסית</strong><br>
+                        תכנן משיכות עתידיות והמערכת תמליץ לך מאיזה מסלול למשוך כדי לשלם הכי פחות מס.
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>➕</span>
+                            <span>הוסף משיכה מתוכננת</span>
+                        </div>
+                    </div>
+                    
+                    <form id="withdrawalForm" onsubmit="saveWithdrawal(event)">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <span class="required">*</span>
+                                    שנה
+                                </label>
+                                <input type="number" class="form-input" id="wYear" min="2026" max="2100" placeholder="2032" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <span class="required">*</span>
+                                    סכום (₪)
+                                </label>
+                                <input type="number" class="form-input" id="wAmount" min="1000" placeholder="100000" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <span class="required">*</span>
+                                מטרה
+                            </label>
+                            <input type="text" class="form-input" id="wGoal" placeholder="חתונה / רכב / דירה" required>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <span id="btnSaveWithdrawalText">➕ הוסף משיכה</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btnCancelWithdrawalEdit" onclick="cancelEditWithdrawal()" style="display: none;">
+                                ביטול עריכה
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>📊</span>
+                            <span>ציר זמן - משיכות מתוכננות</span>
+                        </div>
+                    </div>
+                    <div id="withdrawalTimeline"></div>
+                </div>
+                
+                <div id="withdrawalStrategies"></div>
+            </div>
+
             <!-- Panel 3: Projections -->
             <div id="projections" class="panel">
                 <div class="alert alert-info">
@@ -471,24 +557,36 @@
                         <div class="stat-label">ערך נומינלי כולל</div>
                         <div class="stat-value" id="sumNominal">₪0</div>
                         <div class="stat-detail" id="sumYearsLabel">בעוד 30 שנה</div>
+                        <div class="stat-detail" style="font-size: 0.75em; margin-top: 4px; color: #10b981;">
+                            ✅ אחרי הפחתת דמי ניהול
+                        </div>
                     </div>
                     
                     <div class="stat-card">
                         <div class="stat-label">ערך ריאלי (כוח קנייה)</div>
                         <div class="stat-value" id="sumReal">₪0</div>
                         <div class="stat-detail">שווה ערך לכסף של היום</div>
+                        <div class="stat-detail" style="font-size: 0.75em; margin-top: 4px; color: #666;">
+                            ✅ אחרי הפחתת דמי ניהול
+                        </div>
                     </div>
                     
                     <div class="stat-card red">
                         <div class="stat-label">סה"כ דמי ניהול</div>
                         <div class="stat-value" id="sumFees">₪0</div>
                         <div class="stat-detail">עלות דמי הניהול על התקופה</div>
+                        <div class="stat-detail" style="font-size: 0.75em; margin-top: 4px; color: #ef4444;">
+                            הופחת מהערך הנומינלי
+                        </div>
                     </div>
                     
                     <div class="stat-card orange">
                         <div class="stat-label">מס על רווחים</div>
                         <div class="stat-value" id="sumTax">₪0</div>
                         <div class="stat-detail">המס שתשלם במשיכה מלאה</div>
+                        <div class="stat-detail" style="font-size: 0.75em; margin-top: 4px; color: #f59e0b;">
+                            ❌ לא הופחת - משולם במשיכה
+                        </div>
                     </div>
                 </div>
                 
