@@ -2182,34 +2182,38 @@ function renderTimeline(withdrawals) {
     }
     
     const currentYear = new Date().getFullYear();
-    const minYear = Math.min(currentYear, ...withdrawals.map(w => w.year));
-    const maxYear = Math.max(currentYear + 5, ...withdrawals.map(w => w.year));
     
-    let html = '<div style="padding: 20px; background: #f8f9fa; border-radius: 8px;">';
+    let html = '<div style="padding: 20px;">';
     
-    for (let year = minYear; year <= maxYear; year++) {
-        const yearWithdrawals = withdrawals.filter(w => w.year === year);
-        const isCurrent = year === currentYear;
-        
+    withdrawals.forEach((w, index) => {
+        const yearsFromNow = w.year - currentYear;
         html += `
-            <div style="display: flex; align-items: center; margin-bottom: 12px; ${isCurrent ? 'font-weight: bold; color: #3b82f6;' : ''}">
-                <div style="width: 60px;">${year}</div>
-                <div style="flex: 1; height: 2px; background: ${isCurrent ? '#3b82f6' : '#ddd'}; position: relative;">
-        `;
-        
-        yearWithdrawals.forEach(w => {
-            html += `
-                <div style="position: absolute; left: 20%; top: -12px; background: white; padding: 4px 12px; border: 2px solid #f59e0b; border-radius: 16px; font-size: 0.9em; white-space: nowrap;">
-                    💰 ${formatCurrency(w.amount)} - ${w.goal}
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px; background: white; border-radius: 12px; border: 2px solid #f59e0b; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="flex-shrink: 0; width: 80px; text-align: center;">
+                    <div style="font-size: 1.8em; font-weight: bold; color: #f59e0b;">${w.year}</div>
+                    <div style="font-size: 0.75em; color: #666;">בעוד ${yearsFromNow} שנים</div>
                 </div>
-            `;
-        });
-        
-        html += `
+                <div style="flex: 1;">
+                    <div style="font-size: 1.1em; font-weight: bold; color: #1f2937; margin-bottom: 4px;">
+                        ${w.goal}
+                    </div>
+                    <div style="font-size: 1.3em; color: #f59e0b; font-weight: bold;">
+                        ${formatCurrency(w.amount)}
+                    </div>
+                </div>
+                <div style="flex-shrink: 0;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                        <input type="checkbox" 
+                               id="withdrawal_active_${index}" 
+                               ${w.active !== false ? 'checked' : ''} 
+                               onchange="toggleWithdrawal(${index})"
+                               style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-size: 0.9em; color: #666;">כלול בתחזית</span>
+                    </label>
                 </div>
             </div>
         `;
-    }
+    });
     
     html += '</div>';
     container.innerHTML = html;
@@ -2218,8 +2222,17 @@ function renderTimeline(withdrawals) {
 function renderWithdrawalStrategies(withdrawals) {
     const container = document.getElementById('withdrawalStrategies');
     
-    if (withdrawals.length === 0) {
-        container.innerHTML = '';
+    // Filter only active withdrawals
+    const activeWithdrawals = withdrawals.filter(w => w.active !== false);
+    
+    if (activeWithdrawals.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #666;">
+                <div style="font-size: 3em; margin-bottom: 16px;">📊</div>
+                <div style="font-size: 1.1em;">לא נבחרו משיכות לחישוב</div>
+                <div style="font-size: 0.9em; margin-top: 8px;">סמן את התיבה "כלול בתחזית" כדי לראות אסטרטגיה</div>
+            </div>
+        `;
         return;
     }
     
@@ -2228,7 +2241,8 @@ function renderWithdrawalStrategies(withdrawals) {
     
     let html = '';
     
-    withdrawals.forEach((w, index) => {
+    activeWithdrawals.forEach((w, wIndex) => {
+        const index = withdrawals.indexOf(w);
         const yearsFromNow = w.year - currentYear;
         const strategy = calculateWithdrawalStrategy(w.amount, yearsFromNow, plan);
         
@@ -2279,14 +2293,14 @@ function renderWithdrawalStrategies(withdrawals) {
                         <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                                 <div>
-                                    <strong>💰 סה"כ מס:</strong> 
-                                    <span style="color: ${strategy.totalTax > 0 ? '#ef4444' : '#10b981'}; font-size: 1.2em;">
+                                    <strong style="color: #1f2937;">💰 סה"כ מס:</strong> 
+                                    <span style="color: ${strategy.totalTax > 0 ? '#ef4444' : '#10b981'}; font-size: 1.2em; font-weight: bold;">
                                         ${formatCurrency(strategy.totalTax)}
                                     </span>
                                 </div>
                                 <div>
-                                    <strong>💎 נטו לאחר מס:</strong> 
-                                    <span style="color: #10b981; font-size: 1.2em;">
+                                    <strong style="color: #1f2937;">💎 נטו לאחר מס:</strong> 
+                                    <span style="color: #10b981; font-size: 1.2em; font-weight: bold;">
                                         ${formatCurrency(w.amount - strategy.totalTax)}
                                     </span>
                                 </div>
@@ -2295,30 +2309,23 @@ function renderWithdrawalStrategies(withdrawals) {
                         
                         <h3 style="margin-top: 24px; margin-bottom: 12px; color: #3b82f6;">📊 השפעה על התחזית:</h3>
                         <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                                        <th style="padding: 8px; text-align: right;">שנה</th>
-                                        <th style="padding: 8px; text-align: right;">ללא משיכה</th>
-                                        <th style="padding: 8px; text-align: right;">עם משיכה</th>
-                                        <th style="padding: 8px; text-align: right;">הפרש</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr style="border-bottom: 1px solid #e5e7eb;">
-                                        <td style="padding: 8px;">${w.year}</td>
-                                        <td style="padding: 8px; color: #10b981;">${formatCurrency(strategy.availableTotal)}</td>
-                                        <td style="padding: 8px; color: #3b82f6;">${formatCurrency(strategy.availableTotal - w.amount)}</td>
-                                        <td style="padding: 8px; color: #ef4444;">-${formatCurrency(w.amount)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px; font-weight: bold;">בגיל פרישה</td>
-                                        <td style="padding: 8px; color: #10b981; font-weight: bold;" id="futureWithout_${index}">מחשב...</td>
-                                        <td style="padding: 8px; color: #3b82f6; font-weight: bold;" id="futureWith_${index}">מחשב...</td>
-                                        <td style="padding: 8px; color: #888; font-weight: bold;" id="futureDiff_${index}">-</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <div style="padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; margin-bottom: 12px;">
+                                <strong style="color: #dc2626;">⚠️ השפעה מיידית:</strong>
+                                <div style="margin-top: 8px; color: #1f2937;">
+                                    משיכה של ${formatCurrency(w.amount)} ב-${w.year} תקטין את התיק ב-
+                                    <strong>${((w.amount / strategy.availableTotal) * 100).toFixed(1)}%</strong>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 0.95em;">
+                                <div style="padding: 12px; background: #f0fdf4; border-radius: 6px;">
+                                    <div style="color: #15803d; font-weight: bold; margin-bottom: 4px;">ללא משיכה:</div>
+                                    <div style="font-size: 1.3em; color: #10b981; font-weight: bold;">${formatCurrency(strategy.availableTotal)}</div>
+                                </div>
+                                <div style="padding: 12px; background: #eff6ff; border-radius: 6px;">
+                                    <div style="color: #1e40af; font-weight: bold; margin-bottom: 4px;">עם משיכה:</div>
+                                    <div style="font-size: 1.3em; color: #3b82f6; font-weight: bold;">${formatCurrency(strategy.availableTotal - w.amount)}</div>
+                                </div>
+                            </div>
                         </div>
                     ` : `
                         <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px;">
@@ -2426,3 +2433,12 @@ if (!appData.editingWithdrawalIndex) {
     appData.editingWithdrawalIndex = -1;
 }
 
+
+function toggleWithdrawal(index) {
+    const plan = getCurrentPlan();
+    if (!plan.withdrawals[index]) return;
+    
+    plan.withdrawals[index].active = document.getElementById(`withdrawal_active_${index}`).checked;
+    saveData();
+    renderWithdrawals();
+}
