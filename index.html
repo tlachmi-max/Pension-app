@@ -486,10 +486,10 @@
                             <span>📈</span>
                             <span>תחזית פיננסית</span>
                         </div>
-                        <div class="flex gap-2 items-center">
-                            <label>שנים:</label>
-                            <input type="number" class="form-input" id="projYears" value="30" min="5" max="50" style="width: 100px;">
-                            <button class="btn btn-primary btn-sm" onclick="renderProjections()">עדכן</button>
+                        <div class="flex gap-2 items-center" style="flex-wrap: nowrap;">
+                            <label style="white-space: nowrap;">שנים:</label>
+                            <input type="number" class="form-input" id="projYears" value="30" min="5" max="50" style="width: 70px;">
+                            <button class="btn btn-primary btn-sm" onclick="renderProjections()" style="padding: 6px 12px; font-size: 0.9em;">עדכן</button>
                         </div>
                     </div>
                     
@@ -542,13 +542,13 @@
                     <div class="stat-detail">הסכום הנוכחי בכל המסלולים</div>
                 </div>
                 
-                <div class="flex justify-between items-center mb-3">
+                <div class="flex justify-between items-center mb-3" style="flex-wrap: wrap; gap: 12px;">
                     <h2>תחזית עתידית</h2>
-                    <div class="flex gap-2 items-center">
-                        <label>בעוד:</label>
-                        <input type="number" class="form-input" id="sumYears" value="30" min="1" max="50" style="width: 100px;">
-                        <label>שנים</label>
-                        <button class="btn btn-primary btn-sm" onclick="renderSummary()">עדכן</button>
+                    <div class="flex gap-2 items-center" style="flex-wrap: nowrap;">
+                        <label style="white-space: nowrap;">בעוד:</label>
+                        <input type="number" class="form-input" id="sumYears" value="30" min="1" max="50" style="width: 70px;">
+                        <label style="white-space: nowrap;">שנים</label>
+                        <button class="btn btn-primary btn-sm" onclick="renderSummary()" style="padding: 6px 12px; font-size: 0.9em;">עדכן</button>
                     </div>
                 </div>
                 

@@ -981,22 +981,17 @@ function renderProjections() {
     let rows = '';
     for (let y = 0; y <= years; y += 5) {
         const year = currentYear + y;
-        let totalNominal = 0;
-        let totalPrincipal = 0;
-        let totalTax = 0;
         
-        plan.investments.forEach(inv => {
-            if (!inv.include) return;
-            
-            const nominal = calculateFV(inv.amount, inv.monthly, inv.returnRate, y, 
-                                        inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
-            const principal = calculatePrincipal(inv.amount, inv.monthly, y);
-            const tax = calculateTax(principal, nominal, inv.tax);
-            
-            totalNominal += nominal;
-            totalPrincipal += principal;
-            totalTax += tax;
-        });
+        // Use projection with withdrawals
+        const projection = calculateProjectionWithWithdrawals(
+            plan.investments,
+            y,
+            plan.withdrawals
+        );
+        
+        const totalNominal = projection.finalNominal;
+        const totalPrincipal = projection.finalPrincipal;
+        const totalTax = calculateTax(totalPrincipal, totalNominal, 25); // Approximate
         
         const real = calculateRealValue(totalNominal, y);
         const netAfterTax = totalNominal - totalTax;
@@ -1148,14 +1143,6 @@ function renderSummary() {
         return { inv, nominal, real, tax, principal, fees };
     }).filter(Boolean);
     
-    // Add withdrawal info to display
-    const withdrawalInfo = projection.totalWithdrawn > 0 ? `
-        <div style="margin-top: 8px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; font-size: 0.85em;">
-            ⚠️ כולל ${plan.withdrawals?.filter(w => w.active !== false).length || 0} משיכות מתוכננות<br>
-            סה"כ נמשך: ${formatCurrency(projection.totalWithdrawn)} (מס: ${formatCurrency(projection.totalTaxPaid)})
-        </div>
-    ` : '';
-    
     const totalReal = calculateRealValue(totalNominal, years);
     const pensionReal = calculateRealValue(pensionNominal, years);
     
@@ -1183,7 +1170,21 @@ function renderSummary() {
     document.getElementById('sumReal').textContent = formatCurrency(totalReal);
     document.getElementById('sumFees').textContent = formatCurrency(totalFees);
     document.getElementById('sumTax').textContent = formatCurrency(totalTax);
-    document.getElementById('sumYearsLabel').textContent = `בעוד ${years} שנה${years > 1 ? 'ים' : ''} ${withdrawalInfo}`;
+    
+    // Show years with withdrawal note if applicable
+    const yearsLabel = document.getElementById('sumYearsLabel');
+    const activeWithdrawals = plan.withdrawals?.filter(w => w.active !== false).length || 0;
+    
+    if (projection.totalWithdrawn > 0 && activeWithdrawals > 0) {
+        yearsLabel.innerHTML = `
+            בעוד ${years} שנה${years > 1 ? 'ים' : ''}
+            <div style="font-size: 0.75em; margin-top: 4px; color: rgba(255, 255, 255, 0.9);">
+                ⚠️ כולל ${activeWithdrawals} משיכות (${formatCurrency(projection.netWithdrawn)} נטו)
+            </div>
+        `;
+    } else {
+        yearsLabel.textContent = `בעוד ${years} שנה${years > 1 ? 'ים' : ''}`;
+    }
     
     const container = document.getElementById('summaryBreakdown');
     
