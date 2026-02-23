@@ -144,6 +144,7 @@ function init() {
     if (appData.plans.length === 0) createDefaultPlan();
     setupEventListeners();
     updatePlanSelector();
+    updateTaxRate(); // Show pension fields if pension is default
     render();
     console.log('✅ Ready!');
 }
@@ -2188,12 +2189,12 @@ function renderTimeline(withdrawals) {
     withdrawals.forEach((w, index) => {
         const yearsFromNow = w.year - currentYear;
         html += `
-            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px; background: white; border-radius: 12px; border: 2px solid #f59e0b; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <div style="flex-shrink: 0; width: 80px; text-align: center;">
+            <div style="display: grid; grid-template-columns: 80px 1fr 120px; gap: 16px; align-items: center; margin-bottom: 16px; padding: 16px; background: white; border-radius: 12px; border: 2px solid #f59e0b; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="text-align: center;">
                     <div style="font-size: 1.8em; font-weight: bold; color: #f59e0b;">${w.year}</div>
                     <div style="font-size: 0.75em; color: #666;">בעוד ${yearsFromNow} שנים</div>
                 </div>
-                <div style="flex: 1;">
+                <div>
                     <div style="font-size: 1.1em; font-weight: bold; color: #1f2937; margin-bottom: 4px;">
                         ${w.goal}
                     </div>
@@ -2201,14 +2202,14 @@ function renderTimeline(withdrawals) {
                         ${formatCurrency(w.amount)}
                     </div>
                 </div>
-                <div style="flex-shrink: 0;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                <div style="text-align: center;">
+                    <label style="display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; user-select: none;">
                         <input type="checkbox" 
                                id="withdrawal_active_${index}" 
                                ${w.active !== false ? 'checked' : ''} 
                                onchange="toggleWithdrawal(${index})"
                                style="width: 20px; height: 20px; cursor: pointer;">
-                        <span style="font-size: 0.9em; color: #666;">כלול בתחזית</span>
+                        <span style="font-size: 0.8em; color: #666; white-space: nowrap;">כלול בתחזית</span>
                     </label>
                 </div>
             </div>
