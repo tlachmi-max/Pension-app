@@ -250,23 +250,63 @@ function calculatePensionTax(principal, futureValue, gender, currentAge, years) 
         return profit * 0.25;
     }
     
-    // After retirement age - monthly pension taxation
-    // Assume withdrawal over 20 years (typical pension payout period)
+    // After retirement age - monthly pension taxation (like salary)
     const monthlyPension = futureValue * (gender === 'female' ? 0.006 : 0.005);
     const annualPension = monthlyPension * 12;
     
-    // First ₪60,000/year (₪5,000/month) is tax-free
-    const TAX_FREE_ANNUAL = 60000;
+    // 2025+ Tax calculation with "Ptor Mazke" (67% exemption)
+    const PTOR_MAZKE_RATE = 0.67; // 67% exemption rate from 2025
+    const PTOR_MAZKE_CEILING = 9430 * 12; // Monthly ceiling × 12 months = ₪113,160/year
     
-    if (annualPension <= TAX_FREE_ANNUAL) {
-        return 0; // Fully tax-free
+    // Calculate exemption amount (67% of pension, up to ceiling)
+    const exemptionBase = Math.min(annualPension, PTOR_MAZKE_CEILING);
+    const exemptionAmount = exemptionBase * PTOR_MAZKE_RATE; // Max ~₪75,817/year exempt
+    
+    // Taxable income after exemption
+    let taxableIncome = Math.max(0, annualPension - exemptionAmount);
+    
+    // Credit points (minimum 2.25 for everyone)
+    const CREDIT_POINTS = 2.25;
+    const CREDIT_VALUE_PER_POINT = 2736; // 2024 value per credit point (monthly)
+    const annualCreditValue = CREDIT_POINTS * CREDIT_VALUE_PER_POINT * 12; // ₪73,872/year
+    
+    // Apply credit points (reduces taxable income)
+    taxableIncome = Math.max(0, taxableIncome - annualCreditValue);
+    
+    if (taxableIncome <= 0) {
+        return 0; // No tax after exemptions and credits
     }
     
-    // Tax on amount above ₪60,000 (typical 15% bracket for retirees)
-    const taxableAmount = annualPension - TAX_FREE_ANNUAL;
-    const annualTax = taxableAmount * 0.15;
+    // Israeli tax brackets (2024/2025)
+    const TAX_BRACKETS = [
+        { max: 84120, rate: 0.10 },    // Up to ₪7,010/month → 10%
+        { max: 120720, rate: 0.14 },   // ₪7,011-10,060/month → 14%
+        { max: 174360, rate: 0.20 },   // ₪10,061-14,530/month → 20%
+        { max: 242400, rate: 0.31 },   // ₪14,531-20,200/month → 31%
+        { max: 504360, rate: 0.35 },   // ₪20,201-42,030/month → 35%
+        { max: 663240, rate: 0.47 },   // ₪42,031-55,270/month → 47%
+        { max: Infinity, rate: 0.50 }  // Above ₪55,270/month → 50%
+    ];
     
-    // Total tax over 20 years
+    // Calculate tax by brackets
+    let annualTax = 0;
+    let remainingIncome = taxableIncome;
+    let previousMax = 0;
+    
+    for (const bracket of TAX_BRACKETS) {
+        const bracketSize = bracket.max - previousMax;
+        const amountInBracket = Math.min(remainingIncome, bracketSize);
+        
+        if (amountInBracket <= 0) break;
+        
+        annualTax += amountInBracket * bracket.rate;
+        remainingIncome -= amountInBracket;
+        previousMax = bracket.max;
+        
+        if (remainingIncome <= 0) break;
+    }
+    
+    // Total tax over 20 years (typical pension payout period)
     return annualTax * 20;
 }
 
