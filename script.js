@@ -585,6 +585,16 @@ function saveInvestment(event) {
     }
     
     const amount = sanitizeNumber(document.getElementById('invAmount').value);
+    const invType = document.getElementById('invType').value;
+    
+    // Validate pension fields
+    if (invType === 'פנסיה') {
+        const age = parseInt(document.getElementById('invAge').value);
+        if (!age || age < 18 || age > 120) {
+            alert('❌ עבור פנסיה, נדרש להזין גיל תקין (18-120)');
+            return;
+        }
+    }
     
     // Validate sub-tracks if amount > 0 and tracks exist
     if (amount > 0 && currentSubTracks.length > 0) {
