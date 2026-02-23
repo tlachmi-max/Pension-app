@@ -1151,9 +1151,9 @@ function renderSummary() {
     // Update the "Today" card
     if (pensionToday > 0) {
         todayElement.innerHTML = `
-            <div style="font-size: 2.5em; color: #3b82f6; margin-bottom: 8px;">${formatCurrency(grandTotalToday)}</div>
-            <div style="font-size: 0.85em; color: #666; font-weight: normal;">
-                💼 הון עצמי: <strong>${formatCurrency(totalToday)}</strong><br>
+            <div style="font-size: 2.2em; color: #3b82f6; margin-bottom: 8px; line-height: 1.2;">${formatCurrency(grandTotalToday)}</div>
+            <div style="font-size: 0.75em; color: #666; font-weight: normal; line-height: 1.4;">
+                💼 הון: <strong>${formatCurrency(totalToday)}</strong><br>
                 💰 פנסיה: <strong>${formatCurrency(pensionToday)}</strong>
             </div>
         `;
@@ -2279,30 +2279,41 @@ function renderWithdrawalStrategies(withdrawals) {
                                     <div style="flex: 1;">
                                         <div style="font-weight: bold;">${step.source}</div>
                                         <div style="font-size: 0.9em; color: #666;">
-                                            סה"כ משיכה: ${formatCurrency(step.amount)}
+                                            משיכה ברוטו: ${formatCurrency(step.amount)}
                                         </div>
                                         <div style="font-size: 0.85em; color: #888; margin-top: 4px;">
                                             קרן: ${formatCurrency(step.principal || 0)} | 
                                             רווח: ${formatCurrency(step.profit || 0)} (${(step.profitRatio || 0).toFixed(1)}%)
-                                            ${step.tax > 0 ? ` → מס ${step.tax}%: ${formatCurrency(step.taxAmount)}` : ' → פטור ממס ✅'}
+                                            ${step.tax > 0 ? ` → מס: ${formatCurrency(step.taxAmount)}` : ' → פטור ממס ✅'}
                                         </div>
+                                        ${step.netAmount ? `
+                                        <div style="font-size: 0.9em; color: #10b981; margin-top: 4px; font-weight: bold;">
+                                            💎 נטו בידך: ${formatCurrency(step.netAmount)}
+                                        </div>
+                                        ` : ''}
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
                         
                         <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                                 <div>
-                                    <strong style="color: #1f2937;">💰 סה"כ מס:</strong> 
-                                    <span style="color: ${strategy.totalTax > 0 ? '#ef4444' : '#10b981'}; font-size: 1.2em; font-weight: bold;">
-                                        ${formatCurrency(strategy.totalTax)}
-                                    </span>
+                                    <strong style="color: #1f2937;">💵 ברוטו:</strong> 
+                                    <div style="color: #3b82f6; font-size: 1.2em; font-weight: bold;">
+                                        ${formatCurrency(strategy.totalGross)}
+                                    </div>
                                 </div>
                                 <div>
-                                    <strong style="color: #1f2937;">💎 נטו לאחר מס:</strong> 
-                                    <span style="color: #10b981; font-size: 1.2em; font-weight: bold;">
-                                        ${formatCurrency(w.amount - strategy.totalTax)}
+                                    <strong style="color: #1f2937;">💰 מס:</strong> 
+                                    <div style="color: #ef4444; font-size: 1.2em; font-weight: bold;">
+                                        ${formatCurrency(strategy.totalTax)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong style="color: #1f2937;">💎 נטו:</strong> 
+                                    <div style="color: #10b981; font-size: 1.2em; font-weight: bold;">
+                                        ${formatCurrency(strategy.totalNet)}
                                     </span>
                                 </div>
                             </div>
@@ -2313,8 +2324,10 @@ function renderWithdrawalStrategies(withdrawals) {
                             <div style="padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 6px; margin-bottom: 12px;">
                                 <strong style="color: #dc2626;">⚠️ השפעה מיידית:</strong>
                                 <div style="margin-top: 8px; color: #1f2937;">
-                                    משיכה של ${formatCurrency(w.amount)} ב-${w.year} תקטין את התיק ב-
-                                    <strong>${((w.amount / strategy.availableTotal) * 100).toFixed(1)}%</strong>
+                                    לקבל <strong>${formatCurrency(w.amount)} נטו</strong> צריך למשוך <strong>${formatCurrency(strategy.totalGross)} ברוטו</strong>
+                                    <div style="margin-top: 4px; font-size: 0.9em; color: #666;">
+                                        (קיטון של ${((strategy.totalGross / strategy.availableTotal) * 100).toFixed(1)}% מהתיק)
+                                    </div>
                                 </div>
                             </div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 0.95em;">
@@ -2324,7 +2337,7 @@ function renderWithdrawalStrategies(withdrawals) {
                                 </div>
                                 <div style="padding: 12px; background: #eff6ff; border-radius: 6px;">
                                     <div style="color: #1e40af; font-weight: bold; margin-bottom: 4px;">עם משיכה:</div>
-                                    <div style="font-size: 1.3em; color: #3b82f6; font-weight: bold;">${formatCurrency(strategy.availableTotal - w.amount)}</div>
+                                    <div style="font-size: 1.3em; color: #3b82f6; font-weight: bold;">${formatCurrency(strategy.availableTotal - strategy.totalGross)}</div>
                                 </div>
                             </div>
                         </div>
@@ -2344,7 +2357,7 @@ function renderWithdrawalStrategies(withdrawals) {
     container.innerHTML = html;
 }
 
-function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
+function calculateWithdrawalStrategy(desiredNetAmount, yearsFromNow, plan) {
     // Get available funds by source WITH principal tracking
     const availableFunds = {};
     const principalByType = {};
@@ -2376,26 +2389,21 @@ function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
     // Calculate total available
     const availableTotal = Object.values(availableFunds).reduce((sum, v) => sum + v, 0);
     
-    if (availableTotal < amount) {
-        return { feasible: false, availableTotal };
-    }
-    
-    // Build withdrawal strategy
+    // Build withdrawal strategy to reach desired NET amount
     const steps = [];
-    let remaining = amount;
+    let remainingNet = desiredNetAmount;
+    let totalGross = 0;
     let totalTax = 0;
     
     // Sort hierarchy by priority (high tax first)
     const sorted = [...WITHDRAWAL_HIERARCHY].sort((a, b) => a.priority - b.priority);
     
     for (const source of sorted) {
-        if (remaining <= 0) break;
+        if (remainingNet <= 0.01) break; // Small threshold for floating point
         if (source.blockPension) continue; // Skip pension
         
         const available = availableFunds[source.type] || 0;
         if (available <= 0) continue;
-        
-        const toWithdraw = Math.min(remaining, available);
         
         // Calculate profit ratio (Average method)
         const totalValue = availableFunds[source.type];
@@ -2403,9 +2411,17 @@ function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
         const totalProfit = totalValue - totalPrincipal;
         const profitRatio = totalProfit / totalValue;
         
-        // Apply profit ratio to withdrawal
+        // Calculate effective tax rate (only on profit portion)
+        const effectiveTaxRate = profitRatio * (source.tax / 100);
+        
+        // To get X net, need to withdraw: X / (1 - effective_tax_rate)
+        const grossNeeded = remainingNet / (1 - effectiveTaxRate);
+        const toWithdraw = Math.min(grossNeeded, available);
+        
+        // Calculate actual amounts
         const profitInWithdrawal = toWithdraw * profitRatio;
         const taxAmount = profitInWithdrawal * (source.tax / 100);
+        const netAmount = toWithdraw - taxAmount;
         
         steps.push({
             source: source.name,
@@ -2414,17 +2430,35 @@ function calculateWithdrawalStrategy(amount, yearsFromNow, plan) {
             profit: profitInWithdrawal,
             profitRatio: profitRatio * 100,
             tax: source.tax,
-            taxAmount: taxAmount
+            taxAmount: taxAmount,
+            netAmount: netAmount
         });
         
+        totalGross += toWithdraw;
         totalTax += taxAmount;
-        remaining -= toWithdraw;
+        remainingNet -= netAmount;
+    }
+    
+    // Check if we can reach the desired net amount
+    const achievedNet = totalGross - totalTax;
+    const feasible = achievedNet >= desiredNetAmount * 0.999; // 0.1% tolerance
+    
+    if (!feasible || totalGross > availableTotal) {
+        return { 
+            feasible: false, 
+            availableTotal,
+            desiredNet: desiredNetAmount,
+            achievedNet: achievedNet
+        };
     }
     
     return {
         feasible: true,
         steps,
-        totalTax,
+        totalGross: totalGross,
+        totalTax: totalTax,
+        totalNet: achievedNet,
+        desiredNet: desiredNetAmount,
         availableTotal
     };
 }
