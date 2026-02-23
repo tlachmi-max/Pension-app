@@ -2560,15 +2560,15 @@ function calculateProjectionWithWithdrawals(investments, targetYears, withdrawal
                     if (typeKey && portfolioByType[typeKey]) {
                         // Reduce proportionally from all investments of this type
                         const totalInType = portfolioByType[typeKey].reduce((sum, inv) => {
-                            return sum + calculateCurrentValue(inv, year);
+                            return sum + inv.amount; // inv.amount is already current value
                         }, 0);
                         
                         portfolioByType[typeKey].forEach(inv => {
-                            const currentValue = calculateCurrentValue(inv, year);
-                            const proportion = currentValue / totalInType;
+                            const currentValue = inv.amount; // Use direct amount
+                            const proportion = totalInType > 0 ? currentValue / totalInType : 0;
                             const amountToReduce = step.amount * proportion;
                             
-                            // Reduce by converting to a negative "withdrawal"
+                            // Reduce by the withdrawal amount
                             inv.amount = Math.max(0, currentValue - amountToReduce);
                             inv.monthly = 0; // Stop monthly deposits after withdrawal
                         });
@@ -2586,8 +2586,9 @@ function calculateProjectionWithWithdrawals(investments, targetYears, withdrawal
         if (year < targetYears) {
             Object.keys(portfolioByType).forEach(type => {
                 portfolioByType[type].forEach(inv => {
-                    const currentValue = calculateCurrentValue(inv, 0);
-                    inv.amount = calculateFV(currentValue, inv.monthly, inv.returnRate, 1,
+                    // inv.amount is already the current value (after any withdrawals)
+                    // Just grow it for 1 year
+                    inv.amount = calculateFV(inv.amount, inv.monthly, inv.returnRate, 1,
                                             inv.feeDeposit, inv.feeAnnual, inv.subTracks);
                     principalByType[type] += inv.monthly * 12;
                 });
@@ -2601,8 +2602,8 @@ function calculateProjectionWithWithdrawals(investments, targetYears, withdrawal
     
     Object.keys(portfolioByType).forEach(type => {
         portfolioByType[type].forEach(inv => {
-            const value = calculateCurrentValue(inv, 0);
-            finalNominal += value;
+            // inv.amount is already the final value after all years and withdrawals
+            finalNominal += inv.amount;
         });
         finalPrincipal += principalByType[type];
     });
