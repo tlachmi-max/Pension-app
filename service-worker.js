@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v20.1';  // ← v20.1 - Fix today card overflow!
+const CACHE_NAME = 'financial-planner-v21';  // ← v21 - PENSION TAB + ALL FIXES!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

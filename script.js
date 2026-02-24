@@ -41,23 +41,23 @@ function classifyRisk(subTrack) {
     // Otherwise get the type string
     const subTrackType = typeof subTrack === 'object' ? subTrack.type : subTrack;
     
-    // Auto-classification
-    const lowRisk = ['קרן כספית', 'עו"ש', 'פיקדון', 'אג"ח ממשלתי', 'אג"ח קונצרני', 'אג"ח'];
-    const highRisk = ['S&P 500', 'מניות סחיר', 'מדדי מניות חו"ל', 'מדדי מניות בארץ', 'מניות סחיר חו"ל', 'מניות סחיר בארץ'];
+    // New classification according to requirements:
+    // גבוה: מדדי מניות חו״ל, מדדי מניות בארץ, מניות סחיר חו״ל, מניות סחיר בארץ, S&P500
+    const highRisk = ['S&P 500', 'מדדי מניות חו"ל', 'מדדי מניות בארץ', 'מניות סחיר חו"ל', 'מניות סחיר בארץ'];
     
-    // כללי = medium (ONLY כללי)
-    if (subTrackType === 'כללי') return 'medium';
+    // בינוני: כללי, אג״ח קונצרני
+    const mediumRisk = ['כללי', 'אג"ח קונצרני'];
     
-    // Check low risk
+    // נמוך: נדל״ן, אג״ח ממשלתי, קרן כספית, עו״ש
+    const lowRisk = ['נדל"ן', 'אג"ח ממשלתי', 'קרן כספית', 'עו"ש', 'פיקדון'];
+    
+    // Check each category
+    if (highRisk.some(type => subTrackType.includes(type))) return 'high';
+    if (mediumRisk.some(type => subTrackType.includes(type))) return 'medium';
     if (lowRisk.some(type => subTrackType.includes(type))) return 'low';
     
-    // Check high risk
-    if (highRisk.some(type => subTrackType.includes(type))) return 'high';
-    
-    // For נדל"ן and אחר without manual risk = undefined
-    if (subTrackType === 'נדל"ן' || subTrackType.includes('אחר')) return 'undefined';
-    
-    // Everything else = undefined
+    // For "אחר" - use manual risk (required)
+    // If no manual risk set, it won't show up (handled by manualRisk check above)
     return 'undefined';
 }
 
@@ -462,6 +462,7 @@ function switchPanel(panelName) {
     if (panelName === 'summary') renderSummary();
     if (panelName === 'charts') renderCharts();
     if (panelName === 'roadmap') renderWithdrawals();
+    if (panelName === 'pension') renderPensionTab();
 }
 
 // ==========================================
@@ -1137,9 +1138,8 @@ function renderSummary() {
     plan.investments.forEach(inv => {
         if (!inv.include) return;
         
-        if (inv.type === 'פנסיה') {
-            pensionToday += inv.amount || 0;
-        } else {
+        // Only count NON-pension in today's total
+        if (inv.type !== 'פנסיה') {
             totalToday += inv.amount || 0;
         }
     });
@@ -1162,6 +1162,7 @@ function renderSummary() {
     
     const breakdown = plan.investments.map(inv => {
         if (!inv.include) return null;
+        if (inv.type === 'פנסיה') return null; // Skip pension - shown in separate tab
         
         const nominal = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
                                     inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
@@ -1169,23 +1170,11 @@ function renderSummary() {
                                           inv.subTracks ? inv.subTracks.map(st => ({...st, returnRate: st.returnRate})) : null);
         const principal = calculatePrincipal(inv.amount, inv.monthly, years);
         
-        // Calculate tax - use pension-specific calculation if it's a pension
-        let tax;
-        if (inv.type === 'פנסיה' && inv.age && inv.gender) {
-            tax = calculatePensionTax(principal, nominal, inv.gender, inv.age, years);
-        } else {
-            tax = calculateTax(principal, nominal, inv.tax, years); // Pass years
-        }
+        // Calculate tax (no pension here)
+        const tax = calculateTax(principal, nominal, inv.tax, years);
         
         const fees = nominalNoFees - nominal;
         const real = calculateRealValue(nominal, years);
-        
-        // Separate pension calculations (pension is not part of withdrawable projection)
-        if (inv.type === 'פנסיה') {
-            pensionNominal += nominal;
-            pensionPrincipal += principal;
-            pensionTax += tax;
-        }
         
         totalFees += fees;
         
@@ -1196,21 +1185,10 @@ function renderSummary() {
     const pensionReal = calculateRealValue(pensionNominal, years);
     
     // Update displays
-    const grandTotalToday = totalToday + pensionToday;
     const todayElement = document.getElementById('sumToday');
     
-    // Update the "Today" card
-    if (pensionToday > 0) {
-        todayElement.innerHTML = `
-            <div style="font-size: 1.8em; color: white; margin-bottom: 8px; line-height: 1.1; font-weight: bold;">${formatCurrency(grandTotalToday)}</div>
-            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.95); font-weight: normal; line-height: 1.3;">
-                💼 הון: <strong style="color: white;">${formatCurrency(totalToday)}</strong><br>
-                💰 פנסיה: <strong style="color: white;">${formatCurrency(pensionToday)}</strong>
-            </div>
-        `;
-    } else {
-        todayElement.textContent = formatCurrency(totalToday);
-    }
+    // Simple display - equity only
+    todayElement.textContent = formatCurrency(totalToday);
     
     // Calculate tax on final portfolio
     const totalTax = calculateTax(totalPrincipal, totalNominal, 25, years); // Use actual years
@@ -1237,75 +1215,13 @@ function renderSummary() {
     
     const container = document.getElementById('summaryBreakdown');
     
-    // Add pension summary if exists
-    let pensionSummaryHTML = '';
-    if (pensionNominal > 0) {
-        // Get first pension investment for age/gender info
-        const firstPension = plan.investments.find(inv => inv.type === 'פנסיה' && inv.include);
-        const retirementAge = firstPension?.gender === 'female' ? 62 : 67;
-        const currentAge = firstPension?.age || 0;
-        const ageAtWithdrawal = currentAge + years;
-        
-        let taxExplanation = '';
-        if (ageAtWithdrawal < retirementAge) {
-            taxExplanation = `<span style="color: #f85149;">⚠️ משיכה לפני גיל פרישה (${retirementAge}) - מס מלא על הרווח (25%)</span>`;
-        } else {
-            taxExplanation = `<span style="color: #3fb950;">✅ משיכה אחרי גיל פרישה (${retirementAge}) - פטור ממס על ₪5,000 הראשונים בחודש</span>`;
-        }
-        
-        pensionSummaryHTML = `
-            <div class="alert alert-info" style="background: rgba(88, 166, 255, 0.15); border-color: #58a6ff; margin-bottom: 20px;">
-                <span class="alert-icon">💰</span>
-                <div style="flex: 1;">
-                    <strong style="font-size: 1.2em; color: #58a6ff;">סיכום פנסיה (מחוץ להון העצמי):</strong><br>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px;">
-                        <div><strong>ערך נומינלי:</strong> <span style="color: #3fb950;">${formatCurrency(pensionNominal)}</span></div>
-                        <div><strong>ערך ריאלי:</strong> <span style="color: #58a6ff;">${formatCurrency(pensionReal)}</span></div>
-                        <div><strong>קרן:</strong> ${formatCurrency(pensionPrincipal)}</div>
-                        <div><strong>מס משוער:</strong> <span style="color: #f85149;">${formatCurrency(pensionTax)}</span></div>
-                    </div>
-                    <div style="margin-top: 12px; padding: 8px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; font-size: 0.9em;">
-                        ${taxExplanation}
-                    </div>
-                    ${currentAge > 0 ? `<div style="margin-top: 8px; font-size: 0.85em; color: #8b949e;">גיל נוכחי: ${currentAge} | גיל במשיכה: ${ageAtWithdrawal} | גיל פרישה: ${retirementAge}</div>` : ''}
-                </div>
-            </div>
-        `;
-    }
-    
-    container.innerHTML = pensionSummaryHTML + breakdown.map(item => {
-        let pensionHTML = '';
-        if (item.inv.type === 'פנסיה' && item.inv.gender) {
-            const monthlyPensionNominal = calculateMonthlyPension(item.nominal, item.inv.gender);
-            const monthlyPensionReal = calculateMonthlyPension(item.real, item.inv.gender);
-            pensionHTML = `
-                <div class="alert alert-success" style="margin-top: 12px; padding: 12px; background: rgba(63, 185, 80, 0.15); border-color: #3fb950;">
-                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <div>
-                            💰 <strong>קצבה חודשית (נומינלי):</strong> 
-                            <span style="color: #3fb950; font-size: 1.2em;">${formatCurrency(monthlyPensionNominal)}</span>
-                        </div>
-                        <div>
-                            💎 <strong>קצבה חודשית (ריאלי):</strong> 
-                            <span style="color: #58a6ff; font-size: 1.2em;">${formatCurrency(monthlyPensionReal)}</span>
-                            <small style="display: block; color: #8b949e; margin-top: 2px;">כוח קנייה של היום בעוד ${years} שנים</small>
-                        </div>
-                    </div>
-                    <small style="display: block; margin-top: 8px; color: #8b949e; border-top: 1px solid rgba(139, 148, 158, 0.3); padding-top: 8px;">
-                        מחושב לפי מקדם ${item.inv.gender === 'male' ? '0.005 (זכר)' : '0.006 (נקבה)'} | אינפלציה משוערת: 2% שנתי
-                    </small>
-                </div>
-            `;
-        }
-        
-        const typeLabel = item.inv.type === 'פנסיה' ? '💼 פנסיה (מחוץ להון)' : item.inv.type;
-        
+    container.innerHTML = breakdown.map(item => {
         return `
             <div class="item">
                 <div class="item-header">
                     <div>
                         <div class="item-title" style="color: #f0f6fc;">${item.inv.name}</div>
-                        <div class="item-subtitle" style="color: #8b949e;">${typeLabel}</div>
+                        <div class="item-subtitle" style="color: #8b949e;">${item.inv.type}</div>
                     </div>
                     <div style="text-align: left;">
                         <div style="font-size: 1.5em; font-weight: 700; color: #3fb950;">
@@ -1323,7 +1239,6 @@ function renderSummary() {
                     <div class="item-detail"><span>💼</span><span style="color: #d29922;">דמי ניהול: ${formatCurrency(item.fees)}</span></div>
                     <div class="item-detail"><span>✅</span><span style="color: #3fb950; font-weight: 700;">נטו: ${formatCurrency(item.nominal - item.tax)}</span></div>
                 </div>
-                ${pensionHTML}
             </div>
         `;
     }).join('');
@@ -1526,17 +1441,16 @@ function renderRiskPieChart(subTrackObjects) {
     const riskCategories = {
         'סיכון נמוך': 0,
         'סיכון בינוני': 0,
-        'סיכון גבוה': 0,
-        'לא מוגדר': 0
+        'סיכון גבוה': 0
     };
     
-    // Classify each subTrack object
+    // Classify each subTrack object (skip undefined)
     subTrackObjects.forEach(st => {
         const risk = classifyRisk(st);  // Pass full object
         if (risk === 'low') riskCategories['סיכון נמוך'] += st.value;
         else if (risk === 'medium') riskCategories['סיכון בינוני'] += st.value;
         else if (risk === 'high') riskCategories['סיכון גבוה'] += st.value;
-        else riskCategories['לא מוגדר'] += st.value;
+        // Skip undefined - don't add to chart
     });
     
     const ctx = document.getElementById('chartByRisk');
@@ -1695,7 +1609,7 @@ function exportToExcel() {
     try {
         // Calculate analytics
         const byType = {}, byHouse = {}, bySubTrack = {}, byRisk = {
-            'סיכון נמוך': 0, 'סיכון בינוני': 0, 'סיכון גבוה': 0, 'לא מוגדר': 0
+            'סיכון נמוך': 0, 'סיכון בינוני': 0, 'סיכון גבוה': 0
         };
         let total = 0;
         
@@ -1716,7 +1630,7 @@ function exportToExcel() {
                     if (risk === 'low') byRisk['סיכון נמוך'] += subTrackValue;
                     else if (risk === 'medium') byRisk['סיכון בינוני'] += subTrackValue;
                     else if (risk === 'high') byRisk['סיכון גבוה'] += subTrackValue;
-                    else byRisk['לא מוגדר'] += subTrackValue;
+                    // Skip undefined
                 });
             }
             
@@ -2486,9 +2400,16 @@ function calculateWithdrawalStrategy(desiredNetAmount, yearsFromNow, plan) {
         // Calculate effective tax rate (only on profit portion)
         const effectiveTaxRate = profitRatio * (source.tax / 100);
         
-        // To get X net, need to withdraw: X / (1 - effective_tax_rate)
-        const grossNeeded = remainingNet / (1 - effectiveTaxRate);
-        const toWithdraw = Math.min(grossNeeded, available);
+        // Special case: Tax-free sources (gross = net)
+        let toWithdraw;
+        if (source.tax === 0) {
+            // No tax - withdraw exact amount needed
+            toWithdraw = Math.min(remainingNet, available);
+        } else {
+            // With tax - calculate gross needed to reach net
+            const grossNeeded = remainingNet / (1 - effectiveTaxRate);
+            toWithdraw = Math.min(grossNeeded, available);
+        }
         
         // Calculate actual amounts
         const profitInWithdrawal = toWithdraw * profitRatio;
@@ -2747,5 +2668,190 @@ function calculateWithdrawalStrategyFromState(desiredNet, portfolioByType, princ
         totalTax,
         totalNet: achievedNet
     };
+}
+
+
+// ==========================================
+// PENSION TAB FUNCTIONS
+// ==========================================
+
+function renderPensionTab() {
+    const plan = getCurrentPlan();
+    
+    // Separate pensions by gender
+    const husbandPensions = [];
+    const wifePensions = [];
+    const unknownPensions = [];
+    
+    plan.investments.forEach(inv => {
+        if (!inv.include || inv.type !== 'פנסיה') return;
+        
+        if (inv.gender === 'male') {
+            husbandPensions.push(inv);
+        } else if (inv.gender === 'female') {
+            wifePensions.push(inv);
+        } else {
+            unknownPensions.push(inv);
+        }
+    });
+    
+    // Render husband's pensions
+    renderPensionList('pensionHusband', husbandPensions, 'male');
+    
+    // Render wife's pensions
+    renderPensionList('pensionWife', wifePensions, 'female');
+    
+    // Calculate monthly pensions
+    calculateMonthlyPensions(husbandPensions, wifePensions);
+    
+    // Populate simulator dropdown
+    populatePensionSimulator([...husbandPensions, ...wifePensions, ...unknownPensions]);
+}
+
+function renderPensionList(containerId, pensions, gender) {
+    const container = document.getElementById(containerId);
+    
+    if (pensions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-text">אין קופות פנסיה</div></div>';
+        return;
+    }
+    
+    const years = parseInt(document.getElementById('sumYears')?.value) || 30;
+    const currentYear = new Date().getFullYear();
+    
+    let html = '';
+    pensions.forEach((inv, index) => {
+        const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
+                                       inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        const monthlyPension = calculateMonthlyPension(futureValue, gender);
+        
+        html += `
+            <div class="item-card">
+                <div style="display: flex; justify-content: between; align-items: start;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; font-size: 1.1em; color: #1f2937;">${inv.name}</div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 4px;">${inv.house}</div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                    <div>
+                        <div style="font-size: 0.85em; color: #666;">יתרה היום</div>
+                        <div style="font-weight: bold; color: #3b82f6;">${formatCurrency(inv.amount)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85em; color: #666;">הפקדה חודשית</div>
+                        <div style="font-weight: bold; color: #10b981;">${formatCurrency(inv.monthly)}</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                    <div style="font-size: 0.85em; color: #666;">צפי ב-${currentYear + years}</div>
+                    <div style="font-weight: bold; font-size: 1.2em; color: #10b981;">${formatCurrency(futureValue)}</div>
+                    <div style="font-size: 0.9em; color: #3b82f6; margin-top: 4px;">
+                        קצבה חודשית: ${formatCurrency(monthlyPension)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function calculateMonthlyPensions(husbandPensions, wifePensions) {
+    const years = parseInt(document.getElementById('sumYears')?.value) || 30;
+    
+    let husbandTotal = 0;
+    let wifeTotal = 0;
+    
+    husbandPensions.forEach(inv => {
+        const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
+                                       inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        husbandTotal += calculateMonthlyPension(futureValue, 'male');
+    });
+    
+    wifePensions.forEach(inv => {
+        const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
+                                       inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
+        wifeTotal += calculateMonthlyPension(futureValue, 'female');
+    });
+    
+    document.getElementById('pensionHusbandMonthly').textContent = formatCurrency(husbandTotal);
+    document.getElementById('pensionWifeMonthly').textContent = formatCurrency(wifeTotal);
+    document.getElementById('pensionCombined').textContent = formatCurrency(husbandTotal + wifeTotal);
+}
+
+function populatePensionSimulator(pensions) {
+    const select = document.getElementById('pensionSimSelect');
+    
+    let html = '<option value="">בחר קופה...</option>';
+    pensions.forEach((inv, index) => {
+        const genderLabel = inv.gender === 'male' ? '👨' : inv.gender === 'female' ? '👩' : '👤';
+        html += `<option value="${index}">${genderLabel} ${inv.name} - ${inv.house}</option>`;
+    });
+    
+    select.innerHTML = html;
+}
+
+function simulatePensionWithdrawal() {
+    const plan = getCurrentPlan();
+    const selectIndex = parseInt(document.getElementById('pensionSimSelect').value);
+    const withdrawalAge = parseInt(document.getElementById('pensionSimAge').value);
+    const resultDiv = document.getElementById('pensionSimResult');
+    
+    if (isNaN(selectIndex) || isNaN(withdrawalAge)) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">נא למלא את כל השדות</div>';
+        return;
+    }
+    
+    const pensions = plan.investments.filter(inv => inv.include && inv.type === 'פנסיה');
+    const pension = pensions[selectIndex];
+    
+    if (!pension || !pension.age) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">לא נמצאה קופה או חסר גיל נוכחי</div>';
+        return;
+    }
+    
+    const years = withdrawalAge - pension.age;
+    if (years < 0) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">גיל המשיכה חייב להיות גדול מהגיל הנוכחי</div>';
+        return;
+    }
+    
+    const futureValue = calculateFV(pension.amount, pension.monthly, pension.returnRate, years,
+                                    pension.feeDeposit || 0, pension.feeAnnual || 0, pension.subTracks);
+    const monthlyPension = calculateMonthlyPension(futureValue, pension.gender);
+    const retirementAge = pension.gender === 'female' ? 62 : 67;
+    const isEarly = withdrawalAge < retirementAge;
+    
+    resultDiv.innerHTML = `
+        <div class="card" style="background: ${isEarly ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}; border: 2px solid ${isEarly ? '#ef4444' : '#10b981'};">
+            <h4 style="margin-top: 0; color: ${isEarly ? '#dc2626' : '#059669'};">
+                ${isEarly ? '⚠️ משיכה מוקדמת' : '✅ משיכה בגיל פרישה'}
+            </h4>
+            
+            <div style="display: grid; gap: 12px;">
+                <div>
+                    <div style="font-size: 0.9em; color: #666;">יתרה צפויה בגיל ${withdrawalAge}</div>
+                    <div style="font-size: 1.5em; font-weight: bold; color: #1f2937;">${formatCurrency(futureValue)}</div>
+                </div>
+                
+                <div>
+                    <div style="font-size: 0.9em; color: #666;">קצבה חודשית</div>
+                    <div style="font-size: 1.3em; font-weight: bold; color: #3b82f6;">${formatCurrency(monthlyPension)}</div>
+                </div>
+                
+                ${isEarly ? `
+                <div style="padding: 12px; background: white; border-radius: 8px; border-right: 4px solid #ef4444;">
+                    <strong style="color: #dc2626;">שים לב:</strong>
+                    <div style="font-size: 0.9em; color: #666; margin-top: 4px;">
+                        משיכה לפני גיל ${retirementAge} עלולה לכלול קנסות ומיסוי מוגבר
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
 }
 
