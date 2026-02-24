@@ -231,9 +231,18 @@ function calculateRealValue(nominal, years) {
     return nominal / Math.pow(1 + INFLATION_RATE / 100, years);
 }
 
-function calculateTax(principal, futureValue, taxRate) {
-    const profit = futureValue - principal;
-    return profit > 0 ? (profit * taxRate / 100) : 0;
+function calculateTax(principal, futureValue, taxRate, years = 30) {
+    const INFLATION_RATE = 0.02; // 2% annual inflation
+    
+    const nominalProfit = futureValue - principal;
+    if (nominalProfit <= 0) return 0;
+    
+    // Adjust profit for inflation to get REAL profit
+    const inflationFactor = Math.pow(1 + INFLATION_RATE, years);
+    const realProfit = nominalProfit / inflationFactor;
+    
+    // Tax on REAL profit only
+    return realProfit * taxRate / 100;
 }
 
 // Calculate pension tax based on age and gender
@@ -1031,7 +1040,7 @@ function renderProjections() {
         
         const totalNominal = projection.finalNominal;
         const totalPrincipal = projection.finalPrincipal;
-        const totalTax = calculateTax(totalPrincipal, totalNominal, 25); // Approximate
+        const totalTax = calculateTax(totalPrincipal, totalNominal, 25, y); // Use actual years
         
         const real = calculateRealValue(totalNominal, y);
         const netAfterTax = totalNominal - totalTax;
@@ -1074,7 +1083,7 @@ function showYearDetails() {
                                     inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
         const principal = calculatePrincipal(inv.amount, inv.monthly, years);
         const profit = nominal - principal;
-        const tax = calculateTax(principal, nominal, inv.tax);
+        const tax = calculateTax(principal, nominal, inv.tax, years); // Pass years
         const netAfterTax = nominal - tax;
         const real = calculateRealValue(nominal, years);
         
@@ -1165,7 +1174,7 @@ function renderSummary() {
         if (inv.type === 'פנסיה' && inv.age && inv.gender) {
             tax = calculatePensionTax(principal, nominal, inv.gender, inv.age, years);
         } else {
-            tax = calculateTax(principal, nominal, inv.tax);
+            tax = calculateTax(principal, nominal, inv.tax, years); // Pass years
         }
         
         const fees = nominalNoFees - nominal;
@@ -1193,10 +1202,10 @@ function renderSummary() {
     // Update the "Today" card
     if (pensionToday > 0) {
         todayElement.innerHTML = `
-            <div style="font-size: 2.2em; color: #3b82f6; margin-bottom: 8px; line-height: 1.2;">${formatCurrency(grandTotalToday)}</div>
-            <div style="font-size: 0.75em; color: #666; font-weight: normal; line-height: 1.4;">
-                💼 הון: <strong>${formatCurrency(totalToday)}</strong><br>
-                💰 פנסיה: <strong>${formatCurrency(pensionToday)}</strong>
+            <div style="font-size: 1.8em; color: white; margin-bottom: 8px; line-height: 1.1; font-weight: bold;">${formatCurrency(grandTotalToday)}</div>
+            <div style="font-size: 0.7em; color: rgba(255, 255, 255, 0.95); font-weight: normal; line-height: 1.3;">
+                💼 הון: <strong style="color: white;">${formatCurrency(totalToday)}</strong><br>
+                💰 פנסיה: <strong style="color: white;">${formatCurrency(pensionToday)}</strong>
             </div>
         `;
     } else {
@@ -1204,7 +1213,7 @@ function renderSummary() {
     }
     
     // Calculate tax on final portfolio
-    const totalTax = calculateTax(totalPrincipal, totalNominal, 25); // Approximate average
+    const totalTax = calculateTax(totalPrincipal, totalNominal, 25, years); // Use actual years
     
     document.getElementById('sumNominal').textContent = formatCurrency(totalNominal);
     document.getElementById('sumReal').textContent = formatCurrency(totalReal);
