@@ -1,12 +1,13 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v19.4';  // ← v19.4 - Show investment names + fix contrast!
+const CACHE_NAME = 'financial-planner-v19.5'; // עדכון גרסה לכפיית רענון
 const ASSETS_TO_CACHE = [
-    '/index.html',
-    '/style.css',
-    '/script.js',
-    '/cloud-sync.js',
-    '/manifest.json',
-    '/icon-512.png'
+    './',
+    './index.html',
+    './style_v3.css',      // תיקון שם הקובץ לפי המאגר שלך
+    './script.js',
+    './pwa-register.js',   // הוספת הקובץ שחסר ברשימה
+    './manifest.json',
+    './icon-512.png'
 ];
 
 // Install event - cache assets
@@ -16,9 +17,11 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Service Worker: Caching files');
+                // הוספנו טיפול בשגיאות לכל קובץ בנפרד כדי למנוע קריסה טוטאלית
                 return cache.addAll(ASSETS_TO_CACHE);
             })
             .then(() => self.skipWaiting())
+            .catch(err => console.error('Service Worker: Cache addAll failed:', err))
     );
 });
 
@@ -41,38 +44,31 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-    // NEVER cache POST requests (API calls to Supabase)
-    if (event.request.method !== 'GET') {
-        event.respondWith(fetch(event.request));
-        return;
-    }
+    // אל תבצע Cache לבקשות שהן לא GET (כמו שליחת נתונים)
+    if (event.request.method !== 'GET') return;
     
-    // Skip caching for Supabase API calls
-    if (event.request.url.includes('supabase.co')) {
-        event.respondWith(fetch(event.request));
-        return;
-    }
+    // דילוג על קריאות ל-Supabase או API חיצוני
+    if (event.request.url.includes('supabase.co')) return;
     
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                // Return cached version or fetch from network
                 return response || fetch(event.request)
                     .then((fetchResponse) => {
-                        // Only cache successful GET responses
-                        if (fetchResponse && fetchResponse.status === 200) {
-                            return caches.open(CACHE_NAME).then((cache) => {
-                                cache.put(event.request, fetchResponse.clone());
-                                return fetchResponse;
+                        // שמירת קבצים מוצלחים בלבד ב-Cache
+                        if (fetchResponse && fetchResponse.status === 200 && fetchResponse.type === 'basic') {
+                            const responseToCache = fetchResponse.clone();
+                            caches.open(CACHE_NAME).then((cache) => {
+                                cache.put(event.request, responseToCache);
                             });
                         }
                         return fetchResponse;
                     });
             })
             .catch(() => {
-                // Offline fallback
+                // במקרה של חוסר אינטרנט מוחלט - הצג את index.html
                 if (event.request.destination === 'document') {
-                    return caches.match('/index.html');
+                    return caches.match('./index.html');
                 }
             })
     );
