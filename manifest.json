@@ -2,7 +2,8 @@
   "name": "סוכן פיננסי - הסוכן המשפחתי והאישי שלך",
   "short_name": "סוכן פיננסי",
   "description": "מערכת לתכנון פיננסי אישי עם תחזיות, גרפים ומחשבון פנסיה",
-  "start_url": "/",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0d1117",
   "theme_color": "#58a6ff",
@@ -11,18 +12,17 @@
   "lang": "he",
   "icons": [
     {
-      "src": "icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
-  "categories": ["finance", "productivity"],
-  "screenshots": []
+  "categories": ["finance", "productivity"]
 }
