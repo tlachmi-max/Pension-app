@@ -1,5 +1,5 @@
 // Service Worker for Financial Planner PWA
-const CACHE_NAME = 'financial-planner-v21';  // ← v21 - PENSION TAB + ALL FIXES!
+const CACHE_NAME = 'financial-planner-v21.3';  // ← v21.3 - Net pension calculation!
 const ASSETS_TO_CACHE = [
     '/index.html',
     '/style.css',

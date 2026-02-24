@@ -670,6 +670,7 @@ function saveInvestment(event) {
         include: document.getElementById('invInclude').checked,
         gender: document.getElementById('invGender').value,
         age: parseInt(document.getElementById('invAge').value) || null,
+        spouse: document.getElementById('invSpouse')?.value || 'husband', // Default to husband
         subTracks: [...currentSubTracks]
     };
     
@@ -725,6 +726,9 @@ function editInvestment(index) {
     document.getElementById('invInclude').checked = inv.include !== false;
     document.getElementById('invGender').value = inv.gender || 'male';
     document.getElementById('invAge').value = inv.age || '';
+    if (document.getElementById('invSpouse')) {
+        document.getElementById('invSpouse').value = inv.spouse || 'husband';
+    }
     
     currentSubTracks = inv.subTracks ? JSON.parse(JSON.stringify(inv.subTracks)) : [];
     
@@ -2678,7 +2682,7 @@ function calculateWithdrawalStrategyFromState(desiredNet, portfolioByType, princ
 function renderPensionTab() {
     const plan = getCurrentPlan();
     
-    // Separate pensions by gender
+    // Separate pensions by spouse
     const husbandPensions = [];
     const wifePensions = [];
     const unknownPensions = [];
@@ -2686,12 +2690,19 @@ function renderPensionTab() {
     plan.investments.forEach(inv => {
         if (!inv.include || inv.type !== 'פנסיה') return;
         
-        if (inv.gender === 'male') {
+        if (inv.spouse === 'husband') {
             husbandPensions.push(inv);
-        } else if (inv.gender === 'female') {
+        } else if (inv.spouse === 'wife') {
             wifePensions.push(inv);
         } else {
-            unknownPensions.push(inv);
+            // Backward compatibility - use gender if spouse not set
+            if (inv.gender === 'male') {
+                husbandPensions.push(inv);
+            } else if (inv.gender === 'female') {
+                wifePensions.push(inv);
+            } else {
+                unknownPensions.push(inv);
+            }
         }
     });
     
@@ -2716,7 +2727,7 @@ function renderPensionList(containerId, pensions, gender) {
         return;
     }
     
-    const years = parseInt(document.getElementById('sumYears')?.value) || 30;
+    const years = parseInt(document.getElementById('pensionYears')?.value) || 30;
     const currentYear = new Date().getFullYear();
     
     let html = '';
@@ -2760,26 +2771,57 @@ function renderPensionList(containerId, pensions, gender) {
 }
 
 function calculateMonthlyPensions(husbandPensions, wifePensions) {
-    const years = parseInt(document.getElementById('sumYears')?.value) || 30;
+    const years = parseInt(document.getElementById('pensionYears')?.value) || 30;
     
-    let husbandTotal = 0;
-    let wifeTotal = 0;
+    let husbandTotalGross = 0;
+    let wifeTotalGross = 0;
     
     husbandPensions.forEach(inv => {
         const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
                                        inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
-        husbandTotal += calculateMonthlyPension(futureValue, 'male');
+        husbandTotalGross += calculateMonthlyPension(futureValue, 'male');
     });
     
     wifePensions.forEach(inv => {
         const futureValue = calculateFV(inv.amount, inv.monthly, inv.returnRate, years,
                                        inv.feeDeposit || 0, inv.feeAnnual || 0, inv.subTracks);
-        wifeTotal += calculateMonthlyPension(futureValue, 'female');
+        wifeTotalGross += calculateMonthlyPension(futureValue, 'female');
     });
     
-    document.getElementById('pensionHusbandMonthly').textContent = formatCurrency(husbandTotal);
-    document.getElementById('pensionWifeMonthly').textContent = formatCurrency(wifeTotal);
-    document.getElementById('pensionCombined').textContent = formatCurrency(husbandTotal + wifeTotal);
+    // Calculate net amounts
+    const husbandNet = calculateNetPension(husbandTotalGross);
+    const wifeNet = calculateNetPension(wifeTotalGross);
+    const combinedGross = husbandTotalGross + wifeTotalGross;
+    const combinedNet = calculateNetPension(combinedGross);
+    
+    // Display gross
+    document.getElementById('pensionHusbandGross').textContent = formatCurrency(husbandTotalGross);
+    document.getElementById('pensionWifeGross').textContent = formatCurrency(wifeTotalGross);
+    document.getElementById('pensionCombinedGross').textContent = formatCurrency(combinedGross);
+    
+    // Display net
+    document.getElementById('pensionHusbandNet').textContent = formatCurrency(husbandNet.net);
+    document.getElementById('pensionWifeNet').textContent = formatCurrency(wifeNet.net);
+    document.getElementById('pensionCombinedNet').textContent = formatCurrency(combinedNet.net);
+    
+    // Display tax info
+    if (husbandNet.tax > 0) {
+        document.getElementById('pensionHusbandTax').textContent = `מס: ${formatCurrency(husbandNet.tax)} (${husbandNet.effectiveRate.toFixed(1)}%)`;
+    } else {
+        document.getElementById('pensionHusbandTax').textContent = '✅ פטור ממס';
+    }
+    
+    if (wifeNet.tax > 0) {
+        document.getElementById('pensionWifeTax').textContent = `מס: ${formatCurrency(wifeNet.tax)} (${wifeNet.effectiveRate.toFixed(1)}%)`;
+    } else {
+        document.getElementById('pensionWifeTax').textContent = '✅ פטור ממס';
+    }
+    
+    if (combinedNet.tax > 0) {
+        document.getElementById('pensionCombinedTax').textContent = `מס: ${formatCurrency(combinedNet.tax)}/חודש (${combinedNet.effectiveRate.toFixed(1)}%)`;
+    } else {
+        document.getElementById('pensionCombinedTax').textContent = '✅ פטור מלא ממס - פטור מזכה + נקודות זיכוי';
+    }
 }
 
 function populatePensionSimulator(pensions) {
@@ -2787,8 +2829,14 @@ function populatePensionSimulator(pensions) {
     
     let html = '<option value="">בחר קופה...</option>';
     pensions.forEach((inv, index) => {
-        const genderLabel = inv.gender === 'male' ? '👨' : inv.gender === 'female' ? '👩' : '👤';
-        html += `<option value="${index}">${genderLabel} ${inv.name} - ${inv.house}</option>`;
+        // Use spouse field, fallback to gender for backward compatibility
+        let label = '👤';
+        if (inv.spouse === 'husband' || (!inv.spouse && inv.gender === 'male')) {
+            label = '👨 בעל';
+        } else if (inv.spouse === 'wife' || (!inv.spouse && inv.gender === 'female')) {
+            label = '👩 אשה';
+        }
+        html += `<option value="${index}">${label}: ${inv.name} - ${inv.house}</option>`;
     });
     
     select.innerHTML = html;
@@ -2853,5 +2901,77 @@ function simulatePensionWithdrawal() {
             </div>
         </div>
     `;
+}
+
+
+// Calculate net monthly pension after tax
+function calculateNetPension(grossMonthly) {
+    // Pension tax with 67% exemption (Ptor Mazke)
+    const PTOR_MAZKE_RATE = 0.67;
+    const PTOR_MAZKE_CEILING = 9430; // Monthly ceiling
+    const CREDIT_POINTS = 2.25;
+    const CREDIT_VALUE_PER_POINT = 2736; // 2024 value
+    
+    // 1. Apply Ptor Mazke (67% exemption)
+    const exemptionBase = Math.min(grossMonthly, PTOR_MAZKE_CEILING);
+    const exemptionAmount = exemptionBase * PTOR_MAZKE_RATE;
+    
+    // 2. Taxable income after exemption
+    let taxableIncome = Math.max(0, grossMonthly - exemptionAmount);
+    
+    // 3. Apply credit points
+    const creditAmount = CREDIT_POINTS * CREDIT_VALUE_PER_POINT;
+    taxableIncome = Math.max(0, taxableIncome - creditAmount);
+    
+    if (taxableIncome <= 0) {
+        return {
+            gross: grossMonthly,
+            tax: 0,
+            net: grossMonthly,
+            exemption: exemptionAmount,
+            creditPoints: creditAmount,
+            effectiveRate: 0
+        };
+    }
+    
+    // 4. Calculate tax by brackets
+    const TAX_BRACKETS = [
+        { max: 7010, rate: 0.10 },
+        { max: 10060, rate: 0.14 },
+        { max: 14530, rate: 0.20 },
+        { max: 20200, rate: 0.31 },
+        { max: 42030, rate: 0.35 },
+        { max: 55270, rate: 0.47 },
+        { max: Infinity, rate: 0.50 }
+    ];
+    
+    let tax = 0;
+    let remainingIncome = taxableIncome;
+    let previousMax = 0;
+    
+    for (const bracket of TAX_BRACKETS) {
+        const bracketSize = bracket.max - previousMax;
+        const amountInBracket = Math.min(remainingIncome, bracketSize);
+        
+        if (amountInBracket <= 0) break;
+        
+        tax += amountInBracket * bracket.rate;
+        remainingIncome -= amountInBracket;
+        previousMax = bracket.max;
+        
+        if (remainingIncome <= 0) break;
+    }
+    
+    const net = grossMonthly - tax;
+    const effectiveRate = (tax / grossMonthly) * 100;
+    
+    return {
+        gross: grossMonthly,
+        tax,
+        net,
+        exemption: exemptionAmount,
+        creditPoints: creditAmount,
+        effectiveRate
+    };
 }
 

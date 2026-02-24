@@ -181,6 +181,17 @@
                         
                         <!-- Gender Selection for Pension -->
                         <div id="genderSection" style="display: none;">
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label class="form-label">
+                                    <span class="required">*</span>
+                                    שייך ל
+                                </label>
+                                <select class="form-select" id="invSpouse">
+                                    <option value="husband">👨 בעל</option>
+                                    <option value="wife">👩 אשה</option>
+                                </select>
+                            </div>
+                            
                             <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                                 <div class="form-group">
                                     <label class="form-label">
@@ -604,7 +615,15 @@
 
             <!-- Panel: Pension -->
             <div id="pension" class="panel">
-                <h2 class="mb-4">💰 תוכנית פנסיה</h2>
+                <div class="flex justify-between items-center mb-4" style="flex-wrap: wrap; gap: 12px;">
+                    <h2>💰 תוכנית פנסיה</h2>
+                    <div class="flex gap-2 items-center" style="flex-wrap: nowrap;">
+                        <label style="white-space: nowrap;">בעוד:</label>
+                        <input type="number" class="form-input" id="pensionYears" value="30" min="1" max="50" style="width: 70px;">
+                        <label style="white-space: nowrap;">שנים</label>
+                        <button class="btn btn-primary btn-sm" onclick="renderPensionTab()" style="padding: 6px 12px; font-size: 0.9em;">עדכן</button>
+                    </div>
+                </div>
                 
                 <!-- Pension by Spouse -->
                 <div class="card mb-4">
@@ -630,26 +649,39 @@
                     <div class="card-title">קצבה חודשית צפויה</div>
                     
                     <div style="display: grid; gap: 16px; margin-top: 20px;">
-                        <!-- Combined -->
-                        <div class="stat-card green">
-                            <div class="stat-label">קצבה משפחתית (מאוחדת)</div>
-                            <div class="stat-value" id="pensionCombined">₪0</div>
-                            <div class="stat-detail">קצבה חודשית צפויה ממכלול הקופות</div>
+                        <!-- Combined Gross -->
+                        <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                            <div class="stat-label">קצבה משפחתית - ברוטו</div>
+                            <div class="stat-value" id="pensionCombinedGross">₪0</div>
+                            <div class="stat-detail" style="opacity: 0.9;">לפני מס</div>
+                        </div>
+                        
+                        <!-- Combined Net -->
+                        <div class="stat-card" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                            <div class="stat-label">💎 קצבה משפחתית - נטו</div>
+                            <div class="stat-value" id="pensionCombinedNet">₪0</div>
+                            <div class="stat-detail" id="pensionCombinedTax" style="opacity: 0.9;">אחרי מס</div>
                         </div>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                             <!-- Husband -->
-                            <div class="stat-card" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
-                                <div class="stat-label">👨 בעל</div>
-                                <div class="stat-value" id="pensionHusbandMonthly">₪0</div>
-                                <div class="stat-detail">לפי גיל פרישה: 67</div>
+                            <div class="card" style="background: rgba(59, 130, 246, 0.1); border: 2px solid #3b82f6; padding: 16px;">
+                                <div style="font-weight: bold; color: #3b82f6; margin-bottom: 8px;">👨 בעל (גיל 67)</div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 4px;">ברוטו:</div>
+                                <div style="font-size: 1.3em; font-weight: bold; color: #1f2937; margin-bottom: 8px;" id="pensionHusbandGross">₪0</div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 4px;">💎 נטו:</div>
+                                <div style="font-size: 1.5em; font-weight: bold; color: #3b82f6;" id="pensionHusbandNet">₪0</div>
+                                <div style="font-size: 0.8em; color: #666; margin-top: 4px;" id="pensionHusbandTax"></div>
                             </div>
                             
                             <!-- Wife -->
-                            <div class="stat-card" style="background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);">
-                                <div class="stat-label">👩 אשה</div>
-                                <div class="stat-value" id="pensionWifeMonthly">₪0</div>
-                                <div class="stat-detail">לפי גיל פרישה: 62</div>
+                            <div class="card" style="background: rgba(236, 72, 153, 0.1); border: 2px solid #ec4899; padding: 16px;">
+                                <div style="font-weight: bold; color: #ec4899; margin-bottom: 8px;">👩 אשה (גיל 62)</div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 4px;">ברוטו:</div>
+                                <div style="font-size: 1.3em; font-weight: bold; color: #1f2937; margin-bottom: 8px;" id="pensionWifeGross">₪0</div>
+                                <div style="font-size: 0.9em; color: #666; margin-bottom: 4px;">💎 נטו:</div>
+                                <div style="font-size: 1.5em; font-weight: bold; color: #ec4899;" id="pensionWifeNet">₪0</div>
+                                <div style="font-size: 0.8em; color: #666; margin-top: 4px;" id="pensionWifeTax"></div>
                             </div>
                         </div>
                     </div>
