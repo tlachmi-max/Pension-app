@@ -1,7 +1,8 @@
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
+        // התיקון הקריטי: הוספת נקודה לפני הסלאש כדי שהנתיב יהיה יחסי לתיקייה הנוכחית
+        navigator.serviceWorker.register('./service-worker.js')
             .then((registration) => {
                 console.log('✅ Service Worker registered successfully:', registration.scope);
                 
@@ -32,7 +33,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Show install button/banner (optional)
+    // Show install button/banner
     showInstallPromotion();
 });
 
@@ -43,7 +44,9 @@ window.addEventListener('appinstalled', () => {
 
 // Optional: Show install promotion
 function showInstallPromotion() {
-    // You can create a custom install button
+    // מניעת כפילות של הבאנר
+    if (document.getElementById('pwa-install-banner')) return;
+
     const installBanner = document.createElement('div');
     installBanner.id = 'pwa-install-banner';
     installBanner.style.cssText = `
@@ -60,12 +63,14 @@ function showInstallPromotion() {
         display: flex;
         gap: 12px;
         align-items: center;
-        font-family: Heebo, sans-serif;
+        font-family: system-ui, -apple-system, sans-serif;
         direction: rtl;
+        width: 90%;
+        max-width: 400px;
     `;
     
     installBanner.innerHTML = `
-        <span style="flex: 1;">התקן את האפליקציה למסך הבית 📱</span>
+        <span style="flex: 1; font-size: 14px;">התקן את האפליקציה למסך הבית 📱</span>
         <button id="pwa-install-btn" style="
             background: white;
             color: #58a6ff;
@@ -74,6 +79,7 @@ function showInstallPromotion() {
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
+            white-space: nowrap;
         ">התקן</button>
         <button id="pwa-dismiss-btn" style="
             background: transparent;
