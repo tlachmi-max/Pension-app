@@ -2098,10 +2098,16 @@ function saveWithdrawal(event) {
     const withdrawal = { year, amount, goal };
     
     if (appData.editingWithdrawalIndex >= 0) {
+        // Preserve active state when editing
+        const existingActive = plan.withdrawals[appData.editingWithdrawalIndex].active;
+        withdrawal.active = existingActive;
+        
         plan.withdrawals[appData.editingWithdrawalIndex] = withdrawal;
         appData.editingWithdrawalIndex = -1;
         cancelEditWithdrawal();
     } else {
+        // New withdrawal - default to active
+        withdrawal.active = true;
         plan.withdrawals.push(withdrawal);
     }
     
